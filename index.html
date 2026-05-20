@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ComfyUI Studio</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&family=JetBrains+Mono:wght@300;400;500&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="bg-layer"></div>
+  <div class="noise-overlay"></div>
+
+  <!-- ═══ SETTINGS MODAL ═══ -->
+  <div class="modal-backdrop" id="settingsBackdrop" onclick="closeSettings()"></div>
+  <div class="settings-modal" id="settingsModal">
+    <div class="settings-header">
+      <span class="settings-title">⚙ Settings</span>
+      <button class="icon-btn" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="settings-tabs">
+      <button class="stab active" onclick="switchSettingsTab('themes',this)">Themes</button>
+      <button class="stab" onclick="switchSettingsTab('generation',this)">Generation</button>
+      <button class="stab" onclick="switchSettingsTab('autocomplete',this)">Tag Autocomplete</button>
+      <button class="stab" onclick="switchSettingsTab('notification',this)">Notification</button>
+      <button class="stab" onclick="switchSettingsTab('marbles',this)">Marbles</button>
+    </div>
+
+    <!-- Themes Tab -->
+    <div class="stab-pane active-stab" id="stab-themes">
+      <p class="settings-hint">Select a theme below, or customize colors and fonts.</p>
+      <div class="theme-grid">
+        <button class="theme-btn active" data-theme="novelai-dark" onclick="applyTheme('novelai-dark',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0c0d14,#8b9ef5)"></span>
+          Dark
+        </button>
+        <button class="theme-btn" data-theme="novelai-light" onclick="applyTheme('novelai-light',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#f0f0fa,#6470e0)"></span>
+          Light
+        </button>
+		<button class="theme-btn" data-theme="subtle-terminal" onclick="applyTheme('subtle-terminal', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#121212,#00ff46)"></span>
+		  Subtle Terminal
+		</button>
+		<button class="theme-btn" data-theme="pastel" onclick="applyTheme('pastel', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#fce4ec,#ba68c8)"></span>
+		  Pink Pastel
+		</button>
+		<button class="theme-btn" data-theme="sparkledog" onclick="applyTheme('sparkledog', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#18094a,#099cd6)"></span>
+		  SparkleDog
+		</button>
+		<button class="theme-btn" data-theme="cookie" onclick="applyTheme('cookie', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#f5e6d3,#a0522d)"></span>
+		  Cookie
+		</button>
+		<button class="theme-btn" data-theme="suspicious" onclick="applyTheme('suspicious', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#0d0d0a,#ffd700)"></span>
+		  Suspicious
+		</button>
+		<button class="theme-btn" data-theme="multicolored-pastel" onclick="applyTheme('multicolored-pastel', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#fdf6e3,#6c71c4)"></span>
+		  Pastel
+		</button>
+		<button class="theme-btn" data-theme="ocean" onclick="applyTheme('ocean', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#051520,#50d0e0)"></span>
+		  Ocean
+		</button>
+		<button class="theme-btn" data-theme="retro" onclick="applyTheme('retro', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#d4d0c8,#0054e3)"></span>
+		  Retro
+		</button>
+		<button class="theme-btn" data-theme="koi" onclick="applyTheme('koi', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#1a1005,#ff8040)"></span>
+		  Koi
+		</button>
+		<button class="theme-btn" data-theme="beach" onclick="applyTheme('beach', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#d4e5f0,#0096c8)"></span>
+		  Beach
+		</button>
+        <button class="theme-btn" data-theme="frog" onclick="applyTheme('frog',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0f1f0a,#7ec850)"></span>
+          Frog
+        </button>
+		<button class="theme-btn" data-theme="sky" onclick="applyTheme('sky', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#e0f7fa,#1976d2)"></span>
+		  Sky
+		</button>
+		<button class="theme-btn" data-theme="ikea" onclick="applyTheme('ikea', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#004e98,#ffd232)"></span>
+		  Ikea
+		</button>
+		<button class="theme-btn" data-theme="bubblegum" onclick="applyTheme('bubblegum', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#fff0f5,#db7093)"></span>
+		  Bubblegum
+		</button>
+      </div>
+      <!-- Theme customizer -->
+            <div class="theme-customize-section">
+        <div class="theme-customize-header">
+          <span class="theme-customize-title">⚙ Customize Theme</span>
+          <div style="display:flex;gap:6px">
+            <button class="hist-btn" onclick="resetThemeToDefault()" style="width:auto;padding:5px 12px">↺ Reset</button>
+            <button class="hist-btn" onclick="exportTheme()" style="width:auto;padding:5px 12px">⬇ Export</button>
+            <button class="hist-btn" onclick="document.getElementById('importThemeFile').click()" style="width:auto;padding:5px 12px">⬆ Import</button>
+            <input type="file" id="importThemeFile" accept=".json" style="display:none" onchange="importTheme(event)" />
+          </div>
+        </div>
+        <!--<div class="theme-color-grid">
+          <div class="theme-color-row"><label class="theme-color-label">Background</label><input type="color" class="theme-color-input" id="tc-bg-void" oninput="applyCustomThemeVar('--bg-void',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Panel BG</label><input type="color" class="theme-color-input" id="tc-bg-panel" oninput="applyCustomThemeVar('--bg-panel',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Card BG</label><input type="color" class="theme-color-input" id="tc-bg-card" oninput="applyCustomThemeVar('--bg-card',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Accent</label><input type="color" class="theme-color-input" id="tc-accent" oninput="applyCustomThemeVar('--accent',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Accent Bright</label><input type="color" class="theme-color-input" id="tc-accent-bright" oninput="applyCustomThemeVar('--accent-bright',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Positive</label><input type="color" class="theme-color-input" id="tc-positive" oninput="applyCustomThemeVar('--positive',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Negative</label><input type="color" class="theme-color-input" id="tc-negative" oninput="applyCustomThemeVar('--negative',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Text Hi</label><input type="color" class="theme-color-input" id="tc-text-hi" oninput="applyCustomThemeVar('--text-hi',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Text Mid</label><input type="color" class="theme-color-input" id="tc-text-mid" oninput="applyCustomThemeVar('--text-mid',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Generate Btn</label><input type="color" class="theme-color-input" id="tc-gen-btn" oninput="applyCustomThemeVar('--gen-btn-from',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Modifier Low</label><input type="color" class="theme-color-input" id="tc-modifier-low" oninput="applyCustomThemeVarRgba('--modifier-low',this.value,0.35)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Modifier High</label><input type="color" class="theme-color-input" id="tc-modifier-high" oninput="applyCustomThemeVarRgba('--modifier-high',this.value,0.35)" /></div>
+        </div>-->
+        <div class="theme-font-row">
+          <label class="theme-color-label">Display Font</label>
+          <input type="text" class="theme-font-input" id="tc-font-disp" placeholder="Crimson Pro" oninput="applyCustomFontVar('--font-disp',this.value,'Georgia, serif')" />
+        </div>
+        <div class="theme-font-row">
+          <label class="theme-color-label">UI Font</label>
+          <input type="text" class="theme-font-input" id="tc-font-ui" placeholder="Nunito Sans" oninput="applyCustomFontVar('--font-ui',this.value,'sans-serif')" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Generation Tab -->
+    <div class="stab-pane" id="stab-generation">
+      <label class="field-label">V-Prediction</label>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="vPredictionToggle" onchange="state.vPrediction=this.checked" /> Enable v_prediction (zsnr/v-pred scheduling)</label>
+      </div>
+      <label class="field-label" style="margin-top:14px">RescaleCFG</label>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="rescaleCFGToggle" onchange="onRescaleCFGToggle()" /> Enable RescaleCFG</label>
+      </div>
+      <div id="rescaleCFGSliderWrap" class="slider-row" style="display:none;margin-top:8px">
+        <div class="slider-label-row">
+          <label class="field-label">Rescale Multiplier</label>
+          <input type="number" id="rescaleCFGNum" class="num-input" min="0" max="1" step="0.01" value="0.7" oninput="syncNum('rescaleCFG')" />
+        </div>
+        <input type="range" id="rescaleCFGSlider" min="0" max="1" step="0.01" value="0.7" oninput="syncSlider('rescaleCFG')" />
+      </div>
+      <label class="field-label" style="margin-top:14px">Generate Variations</label>
+      <div class="slider-row">
+        <div class="slider-label-row">
+          <label class="field-label">Variation Denoise</label>
+          <input type="number" id="varDenoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.6" oninput="syncNum('varDenoise')" />
+        </div>
+        <input type="range" id="varDenoiseSlider" min="0" max="1" step="0.01" value="0.6" oninput="syncSlider('varDenoise')" />
+      </div>
+      <div class="slider-row" style="margin-top:8px">
+        <div class="slider-label-row">
+          <label class="field-label">Variation Batch Size</label>
+          <input type="number" id="varBatchNum" class="num-input small" min="1" max="8" value="1" oninput="syncNum('varBatch')" />
+        </div>
+        <input type="range" id="varBatchSlider" min="1" max="8" value="1" oninput="syncSlider('varBatch')" />
+      </div>
+      <label class="field-label" style="margin-top:18px">Experimental</label>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="injectLatentNoiseToggle" onchange="state.injectLatentNoise=this.checked" /> Enable InjectLatentNoise in Enhance (may require custom node)</label>
+      </div>
+    </div>
+
+    <!-- Autocomplete Tab -->
+    <div class="stab-pane" id="stab-autocomplete">
+      <p class="settings-hint">Place CSV files inside a folder called <code>comfystudio autocomplete</code> next to this page. CSV files will be detected automatically when served from a local server.</p>
+      <label class="field-label">Autocomplete Source</label>
+      <div class="sel-wrap">
+        <select id="autocompleteSource" onchange="loadAutocompleteSource()">
+          <option value="none">None</option>
+        </select>
+        <button class="icon-btn" onclick="scanAutoCompleteFolder()" title="Scan for CSV files">↻</button>
+      </div>
+      <p class="settings-hint" style="margin-top:8px">Or drag-and-drop a CSV file here:</p>
+      <div class="csv-drop-zone" id="csvDropZone">Drop CSV file here</div>
+      <div id="autocompleteStatus" class="settings-hint" style="margin-top:6px"></div>
+    </div>
+
+    <!-- Notification Tab -->
+    <div class="stab-pane" id="stab-notification">
+      <p class="settings-hint">Play a sound after each generation completes. Place <code>notif.mp3</code> in the same folder as the HTML/JS/CSS files.</p>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="notifSoundToggle" onchange="state.notifSoundEnabled=this.checked" /> Play notification sound on completion</label>
+      </div>
+      <button class="hist-btn" onclick="testNotifSound()" style="margin-top:10px;width:auto;padding:6px 16px">▶ Test Sound</button>
+    </div>
+
+    <!-- Marbles Tab -->
+    <div class="stab-pane" id="stab-marbles">
+      <p class="settings-hint">Marbles are a fun optional fake currency. Enable them to track the "cost" of generations.</p>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="marblesToggle" onchange="toggleMarbles(this.checked)" /> Enable Marbles currency</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px;gap:8px;align-items:center">
+        <label class="field-label" style="margin:0">Add Marbles:</label>
+        <input type="number" id="marblesAddInput" class="num-input" min="0" value="100" style="width:80px" />
+        <button class="hist-btn" onclick="addMarbles()" style="width:auto;padding:5px 12px">+ Add</button>
+      </div>
+      <p class="settings-hint" style="margin-top:10px">Costs: Small=1 · Normal=5 · Large=25 · Wallpaper=35 · Upscale=10 · Enhance=30 · Variations=30</p>
+    </div>
+  </div>
+
+  <!-- ═══ IMAGE METADATA IMPORT MODAL ═══ -->
+  <div class="modal-backdrop" id="metaBackdrop" onclick="closeMetaModal()"></div>
+  <div class="meta-modal" id="metaModal">
+    <button class="meta-close icon-btn" onclick="closeMetaModal()">✕</button>
+    <img id="metaPreviewImg" class="meta-preview-img" alt="Preview" />
+    <div class="meta-notice">✦ This image has metadata! Did you want to import that instead?</div>
+    <div class="meta-body">
+      <div class="meta-checks">
+        <label><input type="checkbox" id="metaChkPositive" checked /> Positive Prompt</label>
+        <label><input type="checkbox" id="metaChkNegative" checked /> Negative Prompt</label>
+        <label><input type="checkbox" id="metaChkChars" checked /> Characters</label>
+        <label><input type="checkbox" id="metaChkSampler" checked /> Sampler Settings</label>
+        <label><input type="checkbox" id="metaChkSeed" checked /> Seed</label>
+      </div>
+      <div class="meta-actions">
+        <button class="meta-btn accent" onclick="importMetadata()">Import Metadata</button>
+        <button class="meta-btn" onclick="useImg2Img()">image2image</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CONFIRM DIALOG ═══ -->
+  <div class="modal-backdrop" id="confirmBackdrop"></div>
+  <div class="confirm-modal" id="confirmModal">
+    <p class="confirm-text" id="confirmText">Are you sure?</p>
+    <div class="confirm-actions">
+      <button class="meta-btn accent" id="confirmOkBtn">Confirm</button>
+      <button class="meta-btn" id="confirmCancelBtn" onclick="closeConfirmModal()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="app-shell">
+
+    <!-- ═══ LEFT PANEL ═══ -->
+    <aside class="left-panel" id="leftPanel">
+
+      <!-- Panel top bar -->
+      <div class="panel-topbar">
+        <div class="logo">
+          <span class="logo-star">✦</span>
+          <span class="logo-text">Comfy<em>Studio</em></span>
+        </div>
+        <!-- Marbles display (hidden unless enabled) -->
+        <div class="marbles-display" id="marblesDisplay" style="display:none">
+          <span class="marbles-icon">🔮</span>
+          <span class="marbles-label">Marbles:</span>
+          <span class="marbles-count" id="marblesCount">0</span>
+        </div>
+        <div class="topbar-right">
+          <div class="connection-status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Connecting…</span>
+          </div>
+          <button class="icon-btn" id="settingsBtn" onclick="openSettings()" title="Settings">⚙</button>
+        </div>
+      </div>
+
+      <!-- ComfyUI URL row -->
+      <div class="url-row">
+        <span class="url-label">URL</span>
+        <input type="text" id="comfyUrl" value="http://127.0.0.1:8188" />
+        <button class="icon-btn" onclick="reconnect()" title="Reconnect">↻</button>
+      </div>
+
+      <!-- Scrollable cards -->
+      <div class="panel-scroll">
+
+        <!-- ════ MODEL CARD ════ -->
+        <div class="pcard" id="modelCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('modelCard')">
+            <span class="pcard-icon">◈</span>
+            <h3>Model</h3>
+            <div class="segmented" style="margin-left:auto" onclick="event.stopPropagation()">
+              <button class="seg-btn active" onclick="switchModelType('checkpoint',this)">Checkpoint</button>
+              <button class="seg-btn" onclick="switchModelType('diffusion',this)">Diffusion</button>
+            </div>
+            <span class="collapse-arrow">▾</span>
+          </div>
+          <div class="pcard-body" id="modelCard-body">
+            <div id="checkpointRow">
+              <label class="field-label">Checkpoint</label>
+              <div class="sel-wrap">
+                <select id="checkpointSelect"><option>Loading…</option></select>
+                <button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button>
+              </div>
+            </div>
+            <div id="diffusionRow" class="hidden">
+              <label class="field-label">UNET / Diffusion Model</label>
+              <div class="sel-wrap"><select id="diffusionSelect"><option>Loading…</option></select></div>
+              <label class="field-label" style="margin-top:10px">Text Encoder</label>
+              <div class="sel-wrap"><select id="teSelect"><option value="none">none</option></select></div>
+              <label class="field-label" style="margin-top:10px">Encoder Type</label>
+              <div class="sel-wrap">
+                <select id="teType">
+                  <option value="stable_diffusion">stable_diffusion</option>
+                  <option value="flux">flux</option>
+                  <option value="sd3">sd3</option>
+                  <option value="stable_cascade">stable_cascade</option>
+                  <option value="mochi">mochi</option>
+                  <option value="ltxv">ltxv</option>
+                  <option value="cosmos">cosmos</option>
+                  <option value="lumina2">lumina2</option>
+                  <option value="wan">wan</option>
+                  <option value="hidream">hidream</option>
+                  <option value="chroma">chroma</option>
+                  <option value="ace">ace</option>
+                  <option value="qwen_image">qwen_image</option>
+                </select>
+              </div>
+            </div>
+            <label class="field-label" style="margin-top:10px">VAE</label>
+            <div class="sel-wrap">
+              <select id="vaeSelect"><option value="Automatic (embedded)">Automatic (embedded)</option></select>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="model"></div>
+        </div>
+
+        <!-- ════ PROMPT AREA ════ -->
+        <div class="prompt-area-card pcard">
+          <div class="prompt-area">
+            <div class="prompt-tabs-bar">
+              <button class="ptab active" onclick="switchPromptTab('positive',this)">✦ Positive</button>
+              <button class="ptab" onclick="switchPromptTab('negative',this)">✧ Negative</button>
+              <button class="icon-btn ptab-icon-btn" id="qualityTagsBtn" onclick="toggleQualityTagsPanel()" title="Quality Tags">⚙</button>
+            </div>
+
+            <!-- Quality tags panel -->
+            <div class="quality-tags-panel" id="qualityTagsPanel" style="display:none">
+              <div class="quality-tags-row">
+                <label class="qtag-toggle-label">
+                  <input type="checkbox" id="qualityTagsEnabled" />
+                  Prepend quality tags (positive only)
+                </label>
+              </div>
+              <textarea id="qualityTagsText" class="prompt-ta qtag-ta" placeholder="masterpiece, best quality, …" rows="2"></textarea>
+              <div class="quality-tags-row" style="margin-top:8px">
+                <label class="qtag-toggle-label">
+                  <input type="checkbox" id="negQualityTagsEnabled" />
+                  Prepend negative tags (negative only)
+                </label>
+              </div>
+              <textarea id="negQualityTagsText" class="prompt-ta qtag-ta" placeholder="lowres, worst quality, …" rows="2"></textarea>
+            </div>
+
+            <!-- Positive prompt with highlight overlay -->
+            <div id="promptPositive" class="prompt-pane active-pane" style="position:relative">
+              <div class="prompt-highlight-layer" id="highlightLayerPositive" aria-hidden="true"></div>
+              <textarea
+                id="positivePrompt"
+                class="prompt-ta pos-ta"
+                placeholder="1girl, loona \(helluva boss\), standing, solo, soft lighting, detailed background…"
+                rows="5"
+                oninput="updateTokenCount();updatePromptHighlight('positive')"
+                onscroll="syncHighlightScroll('positive')"
+              ></textarea>
+            </div>
+
+            <!-- Negative prompt with highlight overlay -->
+            <div id="promptNegative" class="prompt-pane" style="position:relative">
+              <div class="prompt-highlight-layer" id="highlightLayerNegative" aria-hidden="true"></div>
+              <textarea
+                id="negativePrompt"
+                class="prompt-ta neg-ta"
+                placeholder="lowres, bad anatomy, bad hands, missing fingers, worst quality, blurry, watermark…"
+                rows="5"
+                oninput="updateTokenCount();updatePromptHighlight('negative')"
+                onscroll="syncHighlightScroll('negative')"
+              ></textarea>
+            </div>
+
+            <!-- Token count bar -->
+             <!--<div class="token-count-bar" id="tokenCountBar">
+              <label class="token-toggle-label" title="Toggle token counter">
+                <input type="checkbox" id="tokenCountToggle" checked onchange="toggleTokenCount(this.checked)" style="accent-color:var(--accent);width:11px;height:11px;margin:0;cursor:pointer" />
+              </label>
+              <span class="token-label" id="tokenCountInner">Tokens:</span>
+              <span class="token-value" id="tokenCount">0</span>
+              <span class="token-sep" style="color:var(--text-lo);margin:0 2px">/</span>
+              <span class="token-value" id="tokenTotal">75</span>
+            </div>-->
+
+            <!-- Base image upload (drop target) -->
+            <div class="base-img-zone" id="baseImgZone">
+              <label class="base-img-label" id="baseImgLabel">
+                <span class="base-img-icon">⊕</span> Add Base IMG <em>(click or drop image here)</em>
+              </label>
+              <input type="file" id="baseImgInput" accept="image/*" style="display:none" />
+            </div>
+
+            <!-- img2img preview strip -->
+            <div class="img2img-strip" id="img2imgStrip" style="display:none">
+              <button class="img2img-remove" onclick="removeImg2Img()" title="Remove">✕</button>
+              <img id="img2imgPreview" class="img2img-preview" alt="img2img source" />
+              <div class="img2img-slider-wrap">
+                <label class="field-label" style="margin:0 6px 0 0">Denoise</label>
+                <input type="range" id="img2imgDenoise" min="0" max="1" step="0.01" value="0.7" oninput="updateImg2ImgDenoiseLabel(this)" />
+                <span id="img2imgDenoiseVal" class="token-value">0.70</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LoRAs card -->
+        <div class="pcard">
+          <div class="pcard-header">
+            <span class="pcard-icon">◇</span>
+            <h3>LoRAs</h3>
+            <button class="add-btn" onclick="addLora()" title="Add LoRA" style="margin-left:auto">＋</button>
+          </div>
+          <div class="pcard-body">
+            <div id="loraList" class="lora-list"><p class="empty-hint">No LoRAs — click ＋ to add</p></div>
+          </div>
+          <div class="card-resize-handle" data-card="loras"></div>
+        </div>
+
+        <!-- Characters card -->
+        <div class="pcard">
+          <div class="pcard-header">
+            <span class="pcard-icon">◉</span>
+            <h3>Characters</h3>
+            <button class="add-btn" onclick="addCharacter()" title="Add Character" style="margin-left:auto">＋</button>
+          </div>
+          <div class="pcard-body">
+            <div id="characterList" class="character-list">
+              <p class="empty-hint" id="charEmpty">No characters — click ＋ to add</p>
+            </div>
+            <div class="char-hint-box" id="charHintBox" style="display:none">
+              <span class="hint-icon">◈</span>
+              <p>Use each character's keyword (e.g. <code>{char:1}</code>) inside your positive prompt — it will be replaced with that character's description at generation time.</p>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="characters"></div>
+        </div>
+
+        <!-- Resolution card -->
+        <div class="pcard">
+          <div class="pcard-header">
+            <span class="pcard-icon">⬚</span>
+            <h3>Resolution</h3>
+          </div>
+          <div class="pcard-body">
+            <div class="res-selectors-row">
+              <div class="sel-wrap" style="flex:1">
+                <select id="resCategorySelect" onchange="onResCategoryChange()">
+                  <option value="normal">Normal</option>
+                  <option value="large">Large</option>
+                  <option value="wallpaper">Wallpaper</option>
+                  <option value="small">Small</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="sel-wrap" style="flex:1" id="resOrientWrap">
+                <select id="resOrientSelect" onchange="onResOrientChange()">
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                  <option value="square">Square</option>
+                </select>
+              </div>
+              <div class="sel-wrap" style="flex:1" id="resStandardWrap">
+                <select id="resStandardSelect" onchange="onResStandardChange()">
+                  <option value="sdxl">SDXL</option>
+                  <option value="novelai">NovelAI</option>
+                  <option value="anima">Anima</option>
+                </select>
+              </div>
+            </div>
+            <div class="custom-res-wrap" id="customResWrap">
+              <div class="custom-res-inputs">
+                <div class="field-group">
+                  <label>Width</label>
+                  <input type="number" id="customW" value="512" min="64" max="4096" step="64" oninput="updateCustomRes()" />
+                </div>
+                <span class="res-x">×</span>
+                <div class="field-group">
+                  <label>Height</label>
+                  <input type="number" id="customH" value="512" min="64" max="4096" step="64" oninput="updateCustomRes()" />
+                </div>
+              </div>
+            </div>
+            <div class="current-res" id="currentRes">512 × 512</div>
+          </div>
+          <div class="card-resize-handle" data-card="resolution"></div>
+        </div>
+
+        <!-- ════ SAMPLER CARD ════ -->
+        <div class="pcard" id="samplerCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('samplerCard')">
+            <span class="pcard-icon">⚙</span>
+            <h3>Sampler</h3>
+            <span class="collapse-arrow" style="margin-left:auto">▾</span>
+          </div>
+          <div class="pcard-body" id="samplerCard-body">
+            <label class="field-label">Sampler</label>
+            <div class="sel-wrap">
+              <select id="samplerName">
+                <option value="euler">Euler</option>
+                <option value="euler_ancestral" selected>Euler Ancestral</option>
+                <option value="heun">Heun</option>
+                <option value="dpm_2">DPM 2</option>
+                <option value="dpm_2_ancestral">DPM 2 Ancestral</option>
+                <option value="lms">LMS</option>
+                <option value="dpm_fast">DPM Fast</option>
+                <option value="dpm_adaptive">DPM Adaptive</option>
+                <option value="dpmpp_2s_ancestral">DPM++ 2S Ancestral</option>
+                <option value="dpmpp_sde">DPM++ SDE</option>
+                <option value="dpmpp_2m">DPM++ 2M</option>
+                <option value="dpmpp_2m_sde">DPM++ 2M SDE</option>
+                <option value="dpmpp_3m_sde">DPM++ 3M SDE</option>
+                <option value="ddim">DDIM</option>
+                <option value="uni_pc">UniPC</option>
+              </select>
+            </div>
+            <label class="field-label" style="margin-top:12px">Scheduler</label>
+            <div class="sel-wrap">
+              <select id="scheduler">
+                <option value="normal">Normal</option>
+                <option value="karras" selected>Karras</option>
+                <option value="exponential">Exponential</option>
+                <option value="sgm_uniform">SGM Uniform</option>
+                <option value="simple">Simple</option>
+                <option value="ddim_uniform">DDIM Uniform</option>
+              </select>
+            </div>
+            <div class="slider-row" style="margin-top:14px">
+              <div class="slider-label-row">
+                <label class="field-label">Steps</label>
+                <input type="number" id="stepsNum" class="num-input" min="1" max="150" value="28" oninput="syncNum('steps')" />
+              </div>
+              <input type="range" id="stepsSlider" min="1" max="150" value="28" oninput="syncSlider('steps')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">CFG Scale</label>
+                <input type="number" id="cfgNum" class="num-input" min="1" max="30" step="0.5" value="7" oninput="syncNum('cfg')" />
+              </div>
+              <input type="range" id="cfgSlider" min="1" max="30" step="0.5" value="7" oninput="syncSlider('cfg')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">Denoise</label>
+                <input type="number" id="denoiseNum" class="num-input" min="0" max="1" step="0.01" value="1" oninput="syncNum('denoise')" />
+              </div>
+              <input type="range" id="denoiseSlider" min="0" max="1" step="0.01" value="1" oninput="syncSlider('denoise')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">Batch Size</label>
+                <input type="number" id="batchNum" class="num-input small" min="1" max="8" value="1" oninput="syncNum('batch')" />
+              </div>
+              <input type="range" id="batchSlider" min="1" max="8" value="1" oninput="syncSlider('batch')" />
+            </div>
+            <div class="seed-section">
+              <label class="field-label">Seed</label>
+              <div class="seed-row">
+                <input type="number" id="seedInput" class="seed-input" value="-1" />
+                <button class="icon-btn" onclick="randomSeed()" title="Random seed">⚄</button>
+                <button class="icon-btn" onclick="toggleLockSeed()" title="Lock seed" id="lockSeedBtn">🔓</button>
+              </div>
+              <small class="seed-hint">−1 = random each run</small>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="sampler"></div>
+        </div>
+
+      </div><!-- /panel-scroll -->
+
+      <!-- Panel footer -->
+      <div class="panel-footer">
+        <div class="progress-wrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <span class="progress-text" id="progressText"></span>
+        </div>
+        <div class="batch-counter" id="batchCounter" style="display:none">
+          <span id="batchCounterText">Image 1/1</span>
+        </div>
+        <button class="generate-btn" id="generateBtn" onclick="generate()">
+          <span class="gen-icon">⟡</span>
+          <span id="genBtnText">Generate</span>
+        </button>
+        <button class="interrupt-btn" onclick="interrupt()">✕ Interrupt</button>
+      </div>
+
+      <div class="resize-handle" id="resizeHandle"></div>
+
+    </aside><!-- /left-panel -->
+
+    <!-- ═══ IMAGE PANE ═══ -->
+    <div class="image-pane">
+
+      <!-- Image action bar (Upscale / Use as Base / Variations / Enhance) -->
+      <div class="image-action-bar">
+        <button class="img-action-btn" id="actionUpscaleBtn" onclick="toggleUpscaleMode()">⬆ Upscale</button>
+        <button class="img-action-btn" onclick="useAsBase()">⊕ Use as Base</button>
+        <button class="img-action-btn" onclick="generateVariations()">⟳ Variations</button>
+        <button class="img-action-btn" id="actionEnhanceBtn" onclick="toggleEnhanceMode()">✦ Enhance</button>
+      </div>
+
+      <div class="image-topbar">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="icon-btn back-mode-btn" id="backModeBtn" onclick="exitImageMode()" title="Exit mode" style="display:none">◁</button>
+          <span class="img-title" id="imgTitle">Output</span>
+        </div>
+        <button class="save-btn prominent-save" id="saveBtn" onclick="saveImage()" disabled>⬇ Save Image</button>
+      </div>
+
+      <div class="image-area" id="imageArea"
+           ondragover="onDropAreaDragOver(event)"
+           ondragleave="onDropAreaDragLeave(event)"
+           ondrop="onDropAreaDrop(event)">
+        <div class="img-placeholder" id="imgPlaceholder">
+          <div class="placeholder-glyph">✦</div>
+          <p>Your image will appear here</p>
+        </div>
+        <img id="outputImg" class="output-img" style="display:none" alt="Generated"
+             draggable="true" ondragstart="onOutputImgDragStart(event)" />
+        <div class="gen-overlay" id="genOverlay" style="display:none">
+          <div class="gen-spinner"></div>
+          <span id="genOverlayText">Generating…</span>
+        </div>
+        <!-- Action overlays -->
+        <button class="corner-action-btn" id="enhanceGoBtn" style="display:none" onclick="doEnhance()">✦ Enhance</button>
+        <button class="corner-action-btn upscale-corner" id="upscaleGoBtn" style="display:none" onclick="doUpscaleGenerate()">⬆ Upscale</button>
+      </div>
+
+      <!-- Image info bar -->
+      <div class="image-info-bar" id="imageInfoBar" style="display:none">
+        <span id="imgInfoSeed" class="img-info-item">Seed: —</span>
+        <span class="img-info-sep">·</span>
+        <span id="imgInfoRes" class="img-info-item">—</span>
+      </div>
+
+      <!-- Upscale sub-panel -->
+      <div class="image-sub-panel" id="upscalePanel" style="display:none">
+        <label class="field-label">Upscale Model</label>
+        <div class="sel-wrap">
+          <select id="upscaleModelSelect"><option>Loading…</option></select>
+          <button class="icon-btn" onclick="loadUpscaleModels()" title="Refresh">↻</button>
+        </div>
+        <div class="slider-row" style="margin-top:8px">
+          <div class="slider-label-row">
+            <label class="field-label">Rescale Factor</label>
+            <input type="number" id="upscaleFactorNum" class="num-input" min="1" max="8" step="0.5" value="2" oninput="syncNum('upscaleFactor')" />
+          </div>
+          <input type="range" id="upscaleFactorSlider" min="1" max="8" step="0.5" value="2" oninput="syncSlider('upscaleFactor')" />
+        </div>
+      </div>
+
+      <!-- Enhance sub-panel -->
+      <div class="image-sub-panel" id="enhancePanel" style="display:none">
+        <div class="enhance-options-row">
+          <div style="flex:1">
+            <label class="field-label">Upscale Model</label>
+            <div class="sel-wrap"><select id="enhanceUpscaleModel"><option>Loading…</option></select></div>
+          </div>
+          <div style="flex:1">
+            <label class="field-label">Upscale Factor</label>
+            <input type="number" id="enhanceUpscaleFactor" class="num-input" min="1" max="8" step="0.5" value="2" style="width:100%" />
+          </div>
+        </div>
+        <div class="slider-row" style="margin-top:8px">
+          <div class="slider-label-row">
+            <label class="field-label">Denoise Strength</label>
+            <input type="number" id="enhanceDenoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.4" oninput="syncNum('enhanceDenoise')" />
+          </div>
+          <!-- <input type="range" id="enhanceDenoiseSlider" min="0" max="1" step="0.01" value="0.4" oninput="syncSlider('enhanceDenoise')" /> -->
+        </div>
+        <div class="slider-row" style="margin-top:8px">
+          <div class="slider-label-row">
+            <label class="field-label">Noise Amount</label>
+            <input type="number" id="enhanceNoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.1" oninput="syncNum('enhanceNoise')" />
+          </div>
+          <input type="range" id="enhanceNoiseSlider" min="0" max="1" step="0.01" value="0.1" oninput="syncSlider('enhanceNoise')" />
+        </div>
+        <details class="enhance-advanced">
+          <summary class="enhance-advanced-toggle">▸ Sampling Settings</summary>
+          <div class="enhance-advanced-body">
+            <div class="slider-label-row" style="margin-bottom:6px">
+              <label class="field-label">Seed</label>
+              <input type="number" id="enhanceSeed" class="seed-input" value="-1" style="width:120px" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row"><label class="field-label">Steps</label><input type="number" id="enhanceStepsNum" class="num-input" min="1" max="150" value="20" oninput="syncNum('enhanceSteps')" /></div>
+              <input type="range" id="enhanceStepsSlider" min="1" max="150" value="20" oninput="syncSlider('enhanceSteps')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row"><label class="field-label">CFG</label><input type="number" id="enhanceCFGNum" class="num-input" min="1" max="30" step="0.5" value="7" oninput="syncNum('enhanceCFG')" /></div>
+              <input type="range" id="enhanceCFGSlider" min="1" max="30" step="0.5" value="7" oninput="syncSlider('enhanceCFG')" />
+            </div>
+            <label class="field-label">Sampler</label>
+            <div class="sel-wrap" style="margin-bottom:8px">
+              <select id="enhanceSampler"><option value="euler_ancestral" selected>Euler Ancestral</option><option value="euler">Euler</option><option value="dpmpp_2m">DPM++ 2M</option></select>
+            </div>
+            <label class="field-label">Scheduler</label>
+            <div class="sel-wrap">
+              <select id="enhanceScheduler"><option value="karras" selected>Karras</option><option value="normal">Normal</option></select>
+            </div>
+          </div>
+        </details>
+      </div>
+
+    </div><!-- /image-pane -->
+
+    <!-- ═══ RIGHT HISTORY PANEL ═══ -->
+    <aside class="right-panel" id="rightPanel">
+      <div class="right-panel-inner">
+        <button class="right-collapse-tab" id="rightCollapseTab" onclick="toggleHistoryPanel()" title="Toggle History">
+          <span id="rightCollapseIcon">◁</span>
+        </button>
+        <div class="right-panel-content" id="rightPanelContent">
+          <div class="right-panel-header">
+            <span class="right-panel-title">History</span>
+            <button class="icon-btn" id="historyHelpBtn" title="About history"
+              onmouseenter="showHistoryHelp(true)" onmouseleave="showHistoryHelp(false)">?</button>
+            <div class="history-help-popup" id="historyHelpPopup">
+              History is stored in memory only and will be lost when you close or refresh this page.
+            </div>
+          </div>
+          <div class="history-list" id="historyList">
+            <p class="empty-hint history-empty">Generated images will appear here</p>
+          </div>
+          <div class="right-panel-footer">
+            <button class="hist-btn" onclick="downloadHistoryZip()">⬇ Download ZIP</button>
+            <button class="hist-btn danger" onclick="clearHistory()">✕ Clear</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- /app-shell -->
+
+  <!-- LoRA item template -->
+  <template id="loraTemplate">
+    <div class="lora-item">
+      <div class="lora-top">
+        <select class="lora-sel"></select>
+        <button class="icon-btn remove-btn" onclick="removeLora(this)" title="Remove">✕</button>
+      </div>
+      <div class="lora-strength">
+        <span class="lora-strength-label">Strength</span>
+        <input type="range" class="lora-slider" min="-2" max="2" step="0.05" value="1" oninput="loraSliderInput(this)" />
+        <input type="number" class="lora-num num-input" min="-2" max="2" step="0.05" value="1" oninput="loraNumInput(this)" />
+      </div>
+    </div>
+  </template>
+
+  <!-- Character item template -->
+  <template id="charTemplate">
+    <div class="char-item">
+      <div class="char-header">
+        <span class="char-label">Character</span>
+        <div class="char-actions">
+          <button class="icon-btn hdr-btn" onclick="toggleCharacter(this)" title="Disable">◉</button>
+          <button class="icon-btn hdr-btn remove-btn" onclick="removeCharacter(this)" title="Remove">✕</button>
+        </div>
+      </div>
+      <div class="char-keyword-row">
+        <label>Keyword</label>
+        <input type="text" class="char-keyword-input" />
+      </div>
+      <textarea class="prompt-ta char-ta" placeholder="Describe this character's appearance…" rows="3" oninput="updateCharTokenCount(this)"></textarea>
+     <!-- <div class="char-token-count">Tokens: <span class="char-token-val">0</span></div>-->
+      <div class="char-disabled-overlay">DISABLED</div>
+    </div>
+  </template>
+
+  <!-- History item template -->
+  <template id="historyItemTemplate">
+    <div class="history-item">
+      <img class="history-thumb" alt="History" />
+      <button class="history-delete icon-btn" title="Delete">✕</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
