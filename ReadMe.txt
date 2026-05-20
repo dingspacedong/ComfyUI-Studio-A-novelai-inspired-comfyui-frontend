@@ -6,6 +6,7 @@ Paste --enable-cors-header into your comfyui .bat file.
 The zip file contains all of these files as well as the autocomplete folder with the danbooru, e621, and merged csv files
 If you want an notification sound you can paste an mp3 file called notif.mp3 in the same location as these files. (make sure to enable in settings)
 
+The character feature was made with anima's natural language prompting in mind, but can still be used on any other model.
 
 currently known issues:
 *Custom themes tend to cause problems so don't import any for now. You can change the fonts without any issues.
