@@ -9,6 +9,7 @@ If you want an notification sound you can paste an mp3 file called notif.mp3 in 
 The character feature was made with anima's natural language prompting in mind, but can still be used on any other model.
 
 currently known issues:
+*I forgot to set the right values for the resolutions so it's whatever claude picked for now. Using custom would be recommended
 *Custom themes tend to cause problems so don't import any for now. You can change the fonts without any issues.
 *Upscaler models weren't being loaded properly for some reason so I had to hardcode in the upscale models for now.Yyou should be to add your own in the files if it doesn't have an upscaler you like.
 *Your models/lora/checkpoints don't save between sessions so make sure to set them each time you load it up.
