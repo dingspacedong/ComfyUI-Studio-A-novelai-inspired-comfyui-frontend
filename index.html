@@ -26,6 +26,7 @@
       <button class="stab" onclick="switchSettingsTab('autocomplete',this)">Tag Autocomplete</button>
       <button class="stab" onclick="switchSettingsTab('notification',this)">Notification</button>
       <button class="stab" onclick="switchSettingsTab('marbles',this)">Marbles</button>
+      <button class="stab" onclick="switchSettingsTab('save',this)">Save</button>
     </div>
 
     <!-- Themes Tab -->
@@ -88,27 +89,48 @@
 		  <span class="theme-swatch" style="background:linear-gradient(135deg,#e0f7fa,#1976d2)"></span>
 		  Sky
 		</button>
-		<button class="theme-btn" data-theme="ikea" onclick="applyTheme('ikea', this)">
-		  <span class="theme-swatch" style="background:linear-gradient(135deg,#004e98,#ffd232)"></span>
-		  Ikea
+		<button class="theme-btn" data-theme="hell" onclick="applyTheme('hell', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#1a0505,#ff4500)"></span>
+		  Hell
 		</button>
 		<button class="theme-btn" data-theme="bubblegum" onclick="applyTheme('bubblegum', this)">
 		  <span class="theme-swatch" style="background:linear-gradient(135deg,#fff0f5,#db7093)"></span>
 		  Bubblegum
+		</button>
+		<button class="theme-btn" data-theme="frutiger-aero-dark" onclick="applyTheme('frutiger-aero-dark', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#051020,#40c0ff)"></span>
+		  Aero Dark
+		</button>
+		<button class="theme-btn" data-theme="frutiger-aero" onclick="applyTheme('frutiger-aero', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#60a0f0,#ffffff)"></span>
+		  Frutiger Aero
+		</button>
+		<button class="theme-btn" data-theme="grapesoda" onclick="applyTheme('grapesoda', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#0e0e12,#c080ff)"></span>
+		  Grape Soda
+		</button>
+		<button class="theme-btn" data-theme="ikea" onclick="applyTheme('ikea', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#004e98,#ffd232)"></span>
+		  Ikea
 		</button>
       </div>
       <!-- Theme customizer -->
             <div class="theme-customize-section">
         <div class="theme-customize-header">
           <span class="theme-customize-title">⚙ Customize Theme</span>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;align-items:center">
+            <label class="toggle-label" style="margin-right:4px" title="When on, custom colors/fonts override the selected theme">
+              <input type="checkbox" id="customThemeToggle" onchange="toggleCustomTheme(this.checked)" style="accent-color:var(--accent);width:14px;height:14px" />
+              Enable
+            </label>
             <button class="hist-btn" onclick="resetThemeToDefault()" style="width:auto;padding:5px 12px">↺ Reset</button>
             <button class="hist-btn" onclick="exportTheme()" style="width:auto;padding:5px 12px">⬇ Export</button>
             <button class="hist-btn" onclick="document.getElementById('importThemeFile').click()" style="width:auto;padding:5px 12px">⬆ Import</button>
             <input type="file" id="importThemeFile" accept=".json" style="display:none" onchange="importTheme(event)" />
           </div>
         </div>
-        <!--<div class="theme-color-grid">
+        <div id="customThemeControls" style="display:none">
+        <div class="theme-color-grid">
           <div class="theme-color-row"><label class="theme-color-label">Background</label><input type="color" class="theme-color-input" id="tc-bg-void" oninput="applyCustomThemeVar('--bg-void',this.value)" /></div>
           <div class="theme-color-row"><label class="theme-color-label">Panel BG</label><input type="color" class="theme-color-input" id="tc-bg-panel" oninput="applyCustomThemeVar('--bg-panel',this.value)" /></div>
           <div class="theme-color-row"><label class="theme-color-label">Card BG</label><input type="color" class="theme-color-input" id="tc-bg-card" oninput="applyCustomThemeVar('--bg-card',this.value)" /></div>
@@ -121,7 +143,7 @@
           <div class="theme-color-row"><label class="theme-color-label">Generate Btn</label><input type="color" class="theme-color-input" id="tc-gen-btn" oninput="applyCustomThemeVar('--gen-btn-from',this.value)" /></div>
           <div class="theme-color-row"><label class="theme-color-label">Modifier Low</label><input type="color" class="theme-color-input" id="tc-modifier-low" oninput="applyCustomThemeVarRgba('--modifier-low',this.value,0.35)" /></div>
           <div class="theme-color-row"><label class="theme-color-label">Modifier High</label><input type="color" class="theme-color-input" id="tc-modifier-high" oninput="applyCustomThemeVarRgba('--modifier-high',this.value,0.35)" /></div>
-        </div>-->
+        </div>
         <div class="theme-font-row">
           <label class="theme-color-label">Display Font</label>
           <input type="text" class="theme-font-input" id="tc-font-disp" placeholder="Crimson Pro" oninput="applyCustomFontVar('--font-disp',this.value,'Georgia, serif')" />
@@ -130,6 +152,7 @@
           <label class="theme-color-label">UI Font</label>
           <input type="text" class="theme-font-input" id="tc-font-ui" placeholder="Nunito Sans" oninput="applyCustomFontVar('--font-ui',this.value,'sans-serif')" />
         </div>
+        </div><!-- /customThemeControls -->
       </div>
     </div>
 
@@ -167,7 +190,13 @@
       </div>
       <label class="field-label" style="margin-top:18px">Experimental</label>
       <div class="settings-toggle-row">
-        <label class="toggle-label"><input type="checkbox" id="injectLatentNoiseToggle" onchange="state.injectLatentNoise=this.checked" /> Enable InjectLatentNoise in Enhance (may require custom node)</label>
+        <label class="toggle-label"><input type="checkbox" id="modifierHighlightToggle" checked onchange="toggleModifierHighlight(this.checked)" /> Enable tag modifier intensity highlighting</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="tokenCountSettingsToggle" checked onchange="toggleTokenCount(this.checked)" /> Show token counter</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="inpaintToggle" onchange="toggleInpaint(this.checked)" /> ⚗ Enable Inpainting (experimental)</label>
       </div>
     </div>
 
@@ -184,6 +213,13 @@
       <p class="settings-hint" style="margin-top:8px">Or drag-and-drop a CSV file here:</p>
       <div class="csv-drop-zone" id="csvDropZone">Drop CSV file here</div>
       <div id="autocompleteStatus" class="settings-hint" style="margin-top:6px"></div>
+      <label class="field-label" style="margin-top:16px">Tag Formatting</label>
+      <div class="settings-toggle-row" style="margin-top:6px">
+        <label class="toggle-label"><input type="checkbox" id="acEscapeParensToggle" onchange="state.acEscapeParens=this.checked;saveAcSettings()" /> Auto-escape parentheses — add <code>\</code> before <code>(</code> and <code>)</code> in completed tags</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:8px">
+        <label class="toggle-label"><input type="checkbox" id="acUnderscoreToggle" onchange="state.acReplaceUnderscores=this.checked;saveAcSettings()" /> Replace underscores with spaces in completed tags</label>
+      </div>
     </div>
 
     <!-- Notification Tab -->
@@ -207,6 +243,52 @@
         <button class="hist-btn" onclick="addMarbles()" style="width:auto;padding:5px 12px">+ Add</button>
       </div>
       <p class="settings-hint" style="margin-top:10px">Costs: Small=1 · Normal=5 · Large=25 · Wallpaper=35 · Upscale=10 · Enhance=30 · Variations=30</p>
+    </div>
+
+    <!-- Save Tab -->
+    <div class="stab-pane" id="stab-save">
+      <p class="settings-hint">Choose what gets saved between sessions. Everything checked here is stored in your browser's localStorage and restored on the next page load.</p>
+      <div class="save-options-grid">
+        <div class="save-section-label">Prompts &amp; Characters</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-positivePrompt" checked onchange="updateSavePrefs()" /><span>Positive prompt</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-negativePrompt" checked onchange="updateSavePrefs()" /><span>Negative prompt</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-qualityTags" checked onchange="updateSavePrefs()" /><span>Quality tags (text + enabled state)</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-characters" checked onchange="updateSavePrefs()" /><span>Characters (keywords + prompts)</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Model &amp; LoRAs</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-modelType" checked onchange="updateSavePrefs()" /><span>Model type (checkpoint / diffusion)</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-checkpointSelect" checked onchange="updateSavePrefs()" /><span>Selected checkpoint</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-diffusionSelect" checked onchange="updateSavePrefs()" /><span>Selected diffusion / UNET model</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-vaeSelect" checked onchange="updateSavePrefs()" /><span>Selected VAE</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-teSelect" checked onchange="updateSavePrefs()" /><span>Text encoder + encoder type</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-loras" checked onchange="updateSavePrefs()" /><span>Active LoRAs + strengths</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Sampler</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-sampler" checked onchange="updateSavePrefs()" /><span>Sampler &amp; scheduler</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-steps" checked onchange="updateSavePrefs()" /><span>Steps</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-cfg" checked onchange="updateSavePrefs()" /><span>CFG scale</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-denoise" checked onchange="updateSavePrefs()" /><span>Denoise strength</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-batch" checked onchange="updateSavePrefs()" /><span>Batch size</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-seed" checked onchange="updateSavePrefs()" /><span>Seed value + lock state</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Resolution</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-resolution" checked onchange="updateSavePrefs()" /><span>Resolution category, orientation &amp; standard</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-customRes" checked onchange="updateSavePrefs()" /><span>Custom resolution W × H</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Connection</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-comfyUrl" checked onchange="updateSavePrefs()" /><span>ComfyUI server URL</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Generation Settings</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-vPrediction" checked onchange="updateSavePrefs()" /><span>V-Prediction toggle</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-rescaleCFG" checked onchange="updateSavePrefs()" /><span>RescaleCFG toggle + multiplier</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-varSettings" checked onchange="updateSavePrefs()" /><span>Variation denoise + batch size</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-enhanceSettings" checked onchange="updateSavePrefs()" /><span>Enhance model + sampler settings</span></label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="hist-btn" onclick="saveSession()" style="width:auto;padding:6px 16px">💾 Save Now</button>
+        <button class="hist-btn danger" onclick="confirmClearSave()" style="width:auto;padding:6px 16px">✕ Clear Saved Data</button>
+      </div>
+      <p class="settings-hint" id="saveStatusHint" style="margin-top:8px"></p>
     </div>
   </div>
 
@@ -298,7 +380,7 @@
             </div>
             <div id="diffusionRow" class="hidden">
               <label class="field-label">UNET / Diffusion Model</label>
-              <div class="sel-wrap"><select id="diffusionSelect"><option>Loading…</option></select></div>
+              <div class="sel-wrap"><select id="diffusionSelect"><option>Loading…</option></select><button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button></div>
               <label class="field-label" style="margin-top:10px">Text Encoder</label>
               <div class="sel-wrap"><select id="teSelect"><option value="none">none</option></select></div>
               <label class="field-label" style="margin-top:10px">Encoder Type</label>
@@ -382,7 +464,7 @@
             </div>
 
             <!-- Token count bar -->
-             <!--<div class="token-count-bar" id="tokenCountBar">
+            <div class="token-count-bar" id="tokenCountBar">
               <label class="token-toggle-label" title="Toggle token counter">
                 <input type="checkbox" id="tokenCountToggle" checked onchange="toggleTokenCount(this.checked)" style="accent-color:var(--accent);width:11px;height:11px;margin:0;cursor:pointer" />
               </label>
@@ -390,7 +472,8 @@
               <span class="token-value" id="tokenCount">0</span>
               <span class="token-sep" style="color:var(--text-lo);margin:0 2px">/</span>
               <span class="token-value" id="tokenTotal">75</span>
-            </div>-->
+              <span class="token-warn" id="tokenWarn"></span>
+            </div>
 
             <!-- Base image upload (drop target) -->
             <div class="base-img-zone" id="baseImgZone">
@@ -402,12 +485,49 @@
 
             <!-- img2img preview strip -->
             <div class="img2img-strip" id="img2imgStrip" style="display:none">
-              <button class="img2img-remove" onclick="removeImg2Img()" title="Remove">✕</button>
+              <div class="img2img-strip-actions">
+                <button class="img2img-draw-btn" id="img2imgDrawBtn" onclick="openDrawMenu()" title="Draw on image">✏</button>
+                <button class="img2img-remove" onclick="removeImg2Img()" title="Remove">✕</button>
+              </div>
               <img id="img2imgPreview" class="img2img-preview" alt="img2img source" />
               <div class="img2img-slider-wrap">
                 <label class="field-label" style="margin:0 6px 0 0">Denoise</label>
                 <input type="range" id="img2imgDenoise" min="0" max="1" step="0.01" value="0.7" oninput="updateImg2ImgDenoiseLabel(this)" />
                 <span id="img2imgDenoiseVal" class="token-value">0.70</span>
+              </div>
+              <button class="inpaint-launch-btn" id="inpaintLaunchBtn" onclick="openInpaintMenu()" style="display:none">⬛ Draw Mask</button>
+              <!-- Inpaint controls — shown only when a mask is active -->
+              <div id="inpaintControls" style="display:none">
+                <div class="inpaint-active-bar">
+                  <span class="inpaint-active-label">⬛ Mask active</span>
+                  <button class="paint-tool-btn" onclick="clearActiveMask()" style="font-size:10px;padding:2px 7px">✕ Clear Mask</button>
+                  <button class="paint-tool-btn" onclick="openInpaintMenu()" style="font-size:10px;padding:2px 7px">✏ Edit</button>
+                </div>
+                <div class="slider-row" style="margin-top:6px">
+                  <div class="slider-label-row">
+                    <label class="field-label">Inpaint Denoise</label>
+                    <input type="number" id="inpaintDenoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.85" oninput="syncNum('inpaintDenoise')" />
+                  </div>
+                  <input type="range" id="inpaintDenoiseSlider" min="0" max="1" step="0.01" value="0.85" oninput="syncSlider('inpaintDenoise')" />
+                </div>
+                <div class="slider-row" style="margin-top:4px">
+                  <div class="slider-label-row">
+                    <label class="field-label">Mask Blur</label>
+                    <input type="number" id="inpaintMaskBlurNum" class="num-input" min="0" max="32" step="1" value="4" oninput="syncNum('inpaintMaskBlur')" />
+                  </div>
+                  <input type="range" id="inpaintMaskBlurSlider" min="0" max="32" step="1" value="4" oninput="syncSlider('inpaintMaskBlur')" />
+                </div>
+                <div class="inpaint-options-row" style="margin-top:4px">
+                  <div style="flex:1">
+                    <label class="field-label">Mask Mode</label>
+                    <div class="sel-wrap">
+                      <select id="inpaintMaskMode">
+                        <option value="masked">Inpaint Masked Area</option>
+                        <option value="unmasked">Inpaint Unmasked Area</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -506,32 +626,64 @@
             <label class="field-label">Sampler</label>
             <div class="sel-wrap">
               <select id="samplerName">
-                <option value="euler">Euler</option>
-                <option value="euler_ancestral" selected>Euler Ancestral</option>
-                <option value="heun">Heun</option>
-                <option value="dpm_2">DPM 2</option>
-                <option value="dpm_2_ancestral">DPM 2 Ancestral</option>
-                <option value="lms">LMS</option>
-                <option value="dpm_fast">DPM Fast</option>
-                <option value="dpm_adaptive">DPM Adaptive</option>
-                <option value="dpmpp_2s_ancestral">DPM++ 2S Ancestral</option>
-                <option value="dpmpp_sde">DPM++ SDE</option>
-                <option value="dpmpp_2m">DPM++ 2M</option>
-                <option value="dpmpp_2m_sde">DPM++ 2M SDE</option>
-                <option value="dpmpp_3m_sde">DPM++ 3M SDE</option>
-                <option value="ddim">DDIM</option>
-                <option value="uni_pc">UniPC</option>
+                <option value="euler">euler</option>
+                <option value="euler_cfg_pp">euler_cfg_pp</option>
+                <option value="euler_ancestral" selected>euler_ancestral</option>
+                <option value="euler_ancestral_cfg_pp">euler_ancestral_cfg_pp</option>
+                <option value="heun">heun</option>
+                <option value="heunpp2">heunpp2</option>
+                <option value="exp_heun_2_x0">exp_heun_2_x0</option>
+                <option value="exp_heun_2_x0_sde">exp_heun_2_x0_sde</option>
+                <option value="dpm_2">dpm_2</option>
+                <option value="dpm_2_ancestral">dpm_2_ancestral</option>
+                <option value="lms">lms</option>
+                <option value="dpm_fast">dpm_fast</option>
+                <option value="dpm_adaptive">dpm_adaptive</option>
+                <option value="dpmpp_2s_ancestral">dpmpp_2s_ancestral</option>
+                <option value="dpmpp_2s_ancestral_cfg_pp">dpmpp_2s_ancestral_cfg_pp</option>
+                <option value="dpmpp_sde">dpmpp_sde</option>
+                <option value="dpmpp_sde_gpu">dpmpp_sde_gpu</option>
+                <option value="dpmpp_2m">dpmpp_2m</option>
+                <option value="dpmpp_2m_cfg_pp">dpmpp_2m_cfg_pp</option>
+                <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+                <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
+                <option value="dpmpp_2m_sde_heun">dpmpp_2m_sde_heun</option>
+                <option value="dpmpp_2m_sde_heun_gpu">dpmpp_2m_sde_heun_gpu</option>
+                <option value="dpmpp_3m_sde">dpmpp_3m_sde</option>
+                <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
+                <option value="ddpm">ddpm</option>
+                <option value="lcm">lcm</option>
+                <option value="ipndm">ipndm</option>
+                <option value="ipndm_v">ipndm_v</option>
+                <option value="deis">deis</option>
+                <option value="res_multistep">res_multistep</option>
+                <option value="res_multistep_cfg-pp">res_multistep_cfg-pp</option>
+                <option value="res_multistep_ancestral">res_multistep_ancestral</option>
+                <option value="res_multistep_ancestral_cfg-pp">res_multistep_ancestral_cfg-pp</option>
+                <option value="gradient_estimation">gradient_estimation</option>
+                <option value="gradient_estimation_cfg_pp">gradient_estimation_cfg_pp</option>
+                <option value="er_sde">er_sde</option>
+                <option value="seeds_2">seeds_2</option>
+                <option value="seeds_3">seeds_3</option>
+                <option value="sa_solver">sa_solver</option>
+                <option value="sa_solver_pece">sa_solver_pece</option>
+                <option value="ddim">ddim</option>
+                <option value="uni_pc">uni_pc</option>
+                <option value="uni_pc_bh2">uni_pc_bh2</option>
               </select>
             </div>
             <label class="field-label" style="margin-top:12px">Scheduler</label>
             <div class="sel-wrap">
               <select id="scheduler">
-                <option value="normal">Normal</option>
-                <option value="karras" selected>Karras</option>
-                <option value="exponential">Exponential</option>
-                <option value="sgm_uniform">SGM Uniform</option>
-                <option value="simple">Simple</option>
-                <option value="ddim_uniform">DDIM Uniform</option>
+                <option value="simple">simple</option>
+                <option value="sgm_uniform">sgm_uniform</option>
+                <option value="karras" selected>karras</option>
+                <option value="exponential">exponential</option>
+                <option value="ddim_uniform">ddim_uniform</option>
+                <option value="beta">beta</option>
+                <option value="normal">normal</option>
+                <option value="linear_quadratic">linear_quadratic</option>
+                <option value="kl_optimal">kl_optimal</option>
               </select>
             </div>
             <div class="slider-row" style="margin-top:14px">
@@ -603,19 +755,19 @@
     <div class="image-pane">
 
       <!-- Image action bar (Upscale / Use as Base / Variations / Enhance) -->
-      <div class="image-action-bar">
-        <button class="img-action-btn" id="actionUpscaleBtn" onclick="toggleUpscaleMode()">⬆ Upscale</button>
-        <button class="img-action-btn" onclick="useAsBase()">⊕ Use as Base</button>
-        <button class="img-action-btn" onclick="generateVariations()">⟳ Variations</button>
-        <button class="img-action-btn" id="actionEnhanceBtn" onclick="toggleEnhanceMode()">✦ Enhance</button>
-      </div>
-
       <div class="image-topbar">
         <div style="display:flex;align-items:center;gap:8px">
           <button class="icon-btn back-mode-btn" id="backModeBtn" onclick="exitImageMode()" title="Exit mode" style="display:none">◁</button>
           <span class="img-title" id="imgTitle">Output</span>
         </div>
         <button class="save-btn prominent-save" id="saveBtn" onclick="saveImage()" disabled>⬇ Save Image</button>
+      </div>
+
+      <div class="image-action-bar">
+        <button class="img-action-btn" id="actionUpscaleBtn" onclick="toggleUpscaleMode()">⬆ Upscale</button>
+        <button class="img-action-btn" onclick="useAsBase()">⊕ Use as Base</button>
+        <button class="img-action-btn" onclick="generateVariations()">⟳ Variations</button>
+        <button class="img-action-btn" id="actionEnhanceBtn" onclick="toggleEnhanceMode()">✦ Enhance</button>
       </div>
 
       <div class="image-area" id="imageArea"
@@ -662,6 +814,66 @@
 
       <!-- Enhance sub-panel -->
       <div class="image-sub-panel" id="enhancePanel" style="display:none">
+
+        <!-- Enhance Model Card -->
+        <div class="enhance-model-card" id="enhanceModelCard">
+          <div class="enhance-model-header collapsible-header" onclick="toggleEnhanceModelCard()">
+            <span class="pcard-icon">◈</span>
+            <span class="enhance-model-title">Model</span>
+            <div class="segmented" style="margin-left:auto;margin-right:8px" onclick="event.stopPropagation()">
+              <button class="seg-btn enh-seg active" onclick="switchEnhanceModelType('checkpoint',this)">Checkpoint</button>
+              <button class="seg-btn enh-seg" onclick="switchEnhanceModelType('diffusion',this)">Diffusion</button>
+            </div>
+            <span class="collapse-arrow enhance-collapse-arrow">▾</span>
+          </div>
+          <div class="enhance-model-body" id="enhanceModelCard-body">
+            <!-- Checkpoint row -->
+            <div id="enhanceCheckpointRow">
+              <label class="field-label">Checkpoint</label>
+              <div class="sel-wrap">
+                <select id="enhanceCheckpointSelect"><option>Loading…</option></select>
+                <button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button>
+              </div>
+            </div>
+            <!-- Diffusion row -->
+            <div id="enhanceDiffusionRow" class="hidden">
+              <label class="field-label">UNET / Diffusion Model</label>
+              <div class="sel-wrap">
+                <select id="enhanceDiffusionSelect"><option>Loading…</option></select>
+                <button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button>
+              </div>
+              <label class="field-label" style="margin-top:8px">Text Encoder</label>
+              <div class="sel-wrap">
+                <select id="enhanceTeSelect"><option value="none">none</option></select>
+              </div>
+              <label class="field-label" style="margin-top:8px">Encoder Type</label>
+              <div class="sel-wrap">
+                <select id="enhanceTeType">
+                  <option value="stable_diffusion">stable_diffusion</option>
+                  <option value="flux">flux</option>
+                  <option value="sd3">sd3</option>
+                  <option value="stable_cascade">stable_cascade</option>
+                  <option value="mochi">mochi</option>
+                  <option value="ltxv">ltxv</option>
+                  <option value="cosmos">cosmos</option>
+                  <option value="lumina2">lumina2</option>
+                  <option value="wan">wan</option>
+                  <option value="hidream">hidream</option>
+                  <option value="chroma">chroma</option>
+                  <option value="ace">ace</option>
+                  <option value="qwen_image">qwen_image</option>
+                </select>
+              </div>
+            </div>
+            <!-- VAE (always shown) -->
+            <label class="field-label" style="margin-top:8px">VAE</label>
+            <div class="sel-wrap">
+              <select id="enhanceVaeSelect"><option value="Automatic (embedded)">Automatic (embedded)</option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upscale + Denoise row -->
         <div class="enhance-options-row">
           <div style="flex:1">
             <label class="field-label">Upscale Model</label>
@@ -677,14 +889,7 @@
             <label class="field-label">Denoise Strength</label>
             <input type="number" id="enhanceDenoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.4" oninput="syncNum('enhanceDenoise')" />
           </div>
-          <!-- <input type="range" id="enhanceDenoiseSlider" min="0" max="1" step="0.01" value="0.4" oninput="syncSlider('enhanceDenoise')" /> -->
-        </div>
-        <div class="slider-row" style="margin-top:8px">
-          <div class="slider-label-row">
-            <label class="field-label">Noise Amount</label>
-            <input type="number" id="enhanceNoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.1" oninput="syncNum('enhanceNoise')" />
-          </div>
-          <input type="range" id="enhanceNoiseSlider" min="0" max="1" step="0.01" value="0.1" oninput="syncSlider('enhanceNoise')" />
+          <input type="range" id="enhanceDenoiseSlider" min="0" max="1" step="0.01" value="0.4" oninput="syncSlider('enhanceDenoise')" />
         </div>
         <details class="enhance-advanced">
           <summary class="enhance-advanced-toggle">▸ Sampling Settings</summary>
@@ -703,11 +908,66 @@
             </div>
             <label class="field-label">Sampler</label>
             <div class="sel-wrap" style="margin-bottom:8px">
-              <select id="enhanceSampler"><option value="euler_ancestral" selected>Euler Ancestral</option><option value="euler">Euler</option><option value="dpmpp_2m">DPM++ 2M</option></select>
+              <select id="enhanceSampler">
+                <option value="euler">euler</option>
+                <option value="euler_cfg_pp">euler_cfg_pp</option>
+                <option value="euler_ancestral" selected>euler_ancestral</option>
+                <option value="euler_ancestral_cfg_pp">euler_ancestral_cfg_pp</option>
+                <option value="heun">heun</option>
+                <option value="heunpp2">heunpp2</option>
+                <option value="exp_heun_2_x0">exp_heun_2_x0</option>
+                <option value="exp_heun_2_x0_sde">exp_heun_2_x0_sde</option>
+                <option value="dpm_2">dpm_2</option>
+                <option value="dpm_2_ancestral">dpm_2_ancestral</option>
+                <option value="lms">lms</option>
+                <option value="dpm_fast">dpm_fast</option>
+                <option value="dpm_adaptive">dpm_adaptive</option>
+                <option value="dpmpp_2s_ancestral">dpmpp_2s_ancestral</option>
+                <option value="dpmpp_2s_ancestral_cfg_pp">dpmpp_2s_ancestral_cfg_pp</option>
+                <option value="dpmpp_sde">dpmpp_sde</option>
+                <option value="dpmpp_sde_gpu">dpmpp_sde_gpu</option>
+                <option value="dpmpp_2m">dpmpp_2m</option>
+                <option value="dpmpp_2m_cfg_pp">dpmpp_2m_cfg_pp</option>
+                <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+                <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
+                <option value="dpmpp_2m_sde_heun">dpmpp_2m_sde_heun</option>
+                <option value="dpmpp_2m_sde_heun_gpu">dpmpp_2m_sde_heun_gpu</option>
+                <option value="dpmpp_3m_sde">dpmpp_3m_sde</option>
+                <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
+                <option value="ddpm">ddpm</option>
+                <option value="lcm">lcm</option>
+                <option value="ipndm">ipndm</option>
+                <option value="ipndm_v">ipndm_v</option>
+                <option value="deis">deis</option>
+                <option value="res_multistep">res_multistep</option>
+                <option value="res_multistep_cfg-pp">res_multistep_cfg-pp</option>
+                <option value="res_multistep_ancestral">res_multistep_ancestral</option>
+                <option value="res_multistep_ancestral_cfg-pp">res_multistep_ancestral_cfg-pp</option>
+                <option value="gradient_estimation">gradient_estimation</option>
+                <option value="gradient_estimation_cfg_pp">gradient_estimation_cfg_pp</option>
+                <option value="er_sde">er_sde</option>
+                <option value="seeds_2">seeds_2</option>
+                <option value="seeds_3">seeds_3</option>
+                <option value="sa_solver">sa_solver</option>
+                <option value="sa_solver_pece">sa_solver_pece</option>
+                <option value="ddim">ddim</option>
+                <option value="uni_pc">uni_pc</option>
+                <option value="uni_pc_bh2">uni_pc_bh2</option>
+              </select>
             </div>
             <label class="field-label">Scheduler</label>
             <div class="sel-wrap">
-              <select id="enhanceScheduler"><option value="karras" selected>Karras</option><option value="normal">Normal</option></select>
+              <select id="enhanceScheduler">
+                <option value="simple">simple</option>
+                <option value="sgm_uniform">sgm_uniform</option>
+                <option value="karras" selected>karras</option>
+                <option value="exponential">exponential</option>
+                <option value="ddim_uniform">ddim_uniform</option>
+                <option value="beta">beta</option>
+                <option value="normal">normal</option>
+                <option value="linear_quadratic">linear_quadratic</option>
+                <option value="kl_optimal">kl_optimal</option>
+              </select>
             </div>
           </div>
         </details>
@@ -724,14 +984,9 @@
         <div class="right-panel-content" id="rightPanelContent">
           <div class="right-panel-header">
             <span class="right-panel-title">History</span>
-            <button class="icon-btn" id="historyHelpBtn" title="About history"
-              onmouseenter="showHistoryHelp(true)" onmouseleave="showHistoryHelp(false)">?</button>
-            <div class="history-help-popup" id="historyHelpPopup">
-              History is stored in memory only and will be lost when you close or refresh this page.
-            </div>
           </div>
           <div class="history-list" id="historyList">
-            <p class="empty-hint history-empty">Generated images will appear here</p>
+            <p class="empty-hint history-empty">Generated images will appear here. Images in history will not be saved after closing the tab.</p>
           </div>
           <div class="right-panel-footer">
             <button class="hist-btn" onclick="downloadHistoryZip()">⬇ Download ZIP</button>
@@ -747,7 +1002,11 @@
   <template id="loraTemplate">
     <div class="lora-item">
       <div class="lora-top">
-        <select class="lora-sel"></select>
+        <div class="lora-search-wrap">
+          <input type="text" class="lora-search-input" placeholder="Search LoRA…" autocomplete="off" />
+          <div class="lora-search-dropdown" style="display:none"></div>
+          <input type="hidden" class="lora-sel" />
+        </div>
         <button class="icon-btn remove-btn" onclick="removeLora(this)" title="Remove">✕</button>
       </div>
       <div class="lora-strength">
@@ -772,7 +1031,10 @@
         <label>Keyword</label>
         <input type="text" class="char-keyword-input" />
       </div>
-      <textarea class="prompt-ta char-ta" placeholder="Describe this character's appearance…" rows="3" oninput="updateCharTokenCount(this)"></textarea>
+      <div class="char-prompt-wrap" style="position:relative">
+        <div class="prompt-highlight-layer char-highlight-layer" aria-hidden="true"></div>
+        <textarea class="prompt-ta char-ta" placeholder="Describe this character's appearance…" rows="3" oninput="updateCharTokenCount(this)"></textarea>
+      </div>
      <!-- <div class="char-token-count">Tokens: <span class="char-token-val">0</span></div>-->
       <div class="char-disabled-overlay">DISABLED</div>
     </div>
@@ -785,6 +1047,61 @@
       <button class="history-delete icon-btn" title="Delete">✕</button>
     </div>
   </template>
+
+  <!-- ═══ DRAW ON IMAGE MODAL ═══ -->
+  <div class="paint-modal-backdrop" id="drawModalBackdrop"></div>
+  <div class="paint-modal" id="drawModal">
+    <div class="paint-modal-header">
+      <span class="paint-modal-title">✏ Draw on Image</span>
+      <div class="paint-modal-tools">
+        <div class="paint-tool-group">
+          <label class="paint-tool-label">Brush Size</label>
+          <input type="range" id="drawBrushSize" min="1" max="80" value="12" oninput="updateDrawBrushSize(this.value)" />
+          <span class="paint-tool-val" id="drawBrushSizeVal">12</span>
+        </div>
+        <div class="paint-tool-group">
+          <label class="paint-tool-label">Color</label>
+          <input type="color" id="drawColor" value="#ff6b9d" class="paint-color-input" oninput="updateDrawColor(this.value)" />
+        </div>
+        <button class="paint-tool-btn" id="drawEraserBtn" onclick="toggleDrawEraser()" title="Eraser">◻ Eraser</button>
+        <button class="paint-tool-btn" id="drawEyedropBtn" onclick="toggleDrawEyedrop()" title="Pick color from image">⊙ Pick</button>
+        <button class="paint-tool-btn" onclick="clearDraw()" title="Clear all drawing">↺ Clear</button>
+      </div>
+    </div>
+    <div class="paint-canvas-wrap" id="drawCanvasWrap">
+      <img id="drawBaseImg" class="paint-base-img" alt="" />
+      <canvas id="drawCanvas" class="paint-canvas"></canvas>
+    </div>
+    <div class="paint-modal-footer">
+      <button class="paint-action-btn accent" onclick="saveDrawAndClose()">✓ Save &amp; Close</button>
+      <button class="paint-action-btn" onclick="closeDrawModal()">✕ Exit Without Saving</button>
+    </div>
+  </div>
+
+  <!-- ═══ INPAINT MASK MODAL ═══ -->
+  <div class="paint-modal-backdrop" id="inpaintModalBackdrop"></div>
+  <div class="paint-modal" id="inpaintModal">
+    <div class="paint-modal-header">
+      <span class="paint-modal-title">⬛ Inpaint Mask</span>
+      <div class="paint-modal-tools">
+        <div class="paint-tool-group">
+          <label class="paint-tool-label">Brush Size</label>
+          <input type="range" id="inpaintBrushSize" min="1" max="120" value="20" oninput="updateInpaintBrushSize(this.value)" />
+          <span class="paint-tool-val" id="inpaintBrushSizeVal">20</span>
+        </div>
+        <button class="paint-tool-btn" id="inpaintEraserBtn" onclick="toggleInpaintEraser()" title="Erase mask">◻ Eraser</button>
+        <button class="paint-tool-btn" onclick="clearInpaintMask()" title="Clear mask">↺ Clear Mask</button>
+      </div>
+    </div>
+    <div class="paint-canvas-wrap" id="inpaintCanvasWrap">
+      <img id="inpaintBaseImg" class="paint-base-img" alt="" />
+      <canvas id="inpaintMaskCanvas" class="paint-canvas inpaint-mask-canvas"></canvas>
+    </div>
+    <div class="paint-modal-footer">
+      <button class="paint-action-btn accent" onclick="saveInpaintMaskAndClose()">✓ Save Mask &amp; Close</button>
+      <button class="paint-action-btn" onclick="closeInpaintModal()">✕ Exit Without Saving</button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

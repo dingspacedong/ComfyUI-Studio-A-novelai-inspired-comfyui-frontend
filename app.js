@@ -46,19 +46,51 @@ const state = {
   rescaleCFGEnabled: false,
   rescaleCFGMultiplier: 0.7,
   notifSoundEnabled: false,
-  injectLatentNoise: false,
 
   // Marbles
   marblesEnabled: false,
   marbles: 0,
 
+  // Autocomplete tag formatting
+  acEscapeParens: false,
+  acReplaceUnderscores: false,
+
   // Image actions state
   enhancePanelOpen: false,
   upscalePanelOpen: false,
   imageMode: null, // null | 'upscale' | 'enhance'
+  enhanceModelType: 'checkpoint', // 'checkpoint' | 'diffusion'
 
   // Token count
   tokenCountVisible: true,
+  modifierHighlightEnabled: true,
+
+  // Save preferences — keys match save-chk IDs
+  savePrefs: {
+    'save-positivePrompt': true,
+    'save-negativePrompt': true,
+    'save-qualityTags': true,
+    'save-characters': true,
+    'save-modelType': true,
+    'save-checkpointSelect': true,
+    'save-diffusionSelect': true,
+    'save-vaeSelect': true,
+    'save-teSelect': true,
+    'save-loras': true,
+    'save-sampler': true,
+    'save-steps': true,
+    'save-cfg': true,
+    'save-denoise': true,
+    'save-batch': true,
+    'save-seed': true,
+    'save-resolution': true,
+    'save-customRes': true,
+    'save-comfyUrl': true,
+    'save-vPrediction': true,
+    'save-rescaleCFG': true,
+    'save-varSettings': true,
+    'save-enhanceSettings': true,
+  },
 
   // Batch tracking
   batchTotal: 1,
@@ -103,6 +135,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('comfyStudioTheme') || 'novelai-dark';
   applyTheme(savedTheme, null, true);
 
+  // Restore save preferences
+  const savedPrefs = localStorage.getItem('comfyStudioSavePrefs');
+  if (savedPrefs) {
+    try {
+      const prefs = JSON.parse(savedPrefs);
+      Object.assign(state.savePrefs, prefs);
+      Object.entries(state.savePrefs).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = val;
+      });
+    } catch(e) {}
+  }
+
+  // Restore custom theme toggle
+  const savedCustomThemeEnabled = localStorage.getItem('comfyStudioCustomThemeEnabled') === 'true';
+  if (savedCustomThemeEnabled) {
+    state.customThemeEnabled = true;
+    const tog = document.getElementById('customThemeToggle');
+    if (tog) tog.checked = true;
+    const controls = document.getElementById('customThemeControls');
+    if (controls) controls.style.display = 'block';
+  }
+
   setupResizeHandle();
   setupCardResizeHandles();
   setupCollapsibleCards();
@@ -117,6 +172,19 @@ document.addEventListener('DOMContentLoaded', () => {
   loadUpscaleModels();
 
   connectWS();
+
+  // Restore token count visibility
+  const savedTokenCount = localStorage.getItem('comfyStudioTokenCount');
+  if (savedTokenCount === 'false') {
+    state.tokenCountVisible = false;
+    const bar = document.getElementById('tokenCountBar');
+    if (bar) bar.style.display = 'none';
+    const tog = document.getElementById('tokenCountToggle');
+    if (tog) tog.checked = false;
+    const settingsTog = document.getElementById('tokenCountSettingsToggle');
+    if (settingsTog) settingsTog.checked = false;
+  }
+
   updateTokenCount();
 
   document.getElementById('qualityTagsEnabled').addEventListener('change', e => {
@@ -154,8 +222,30 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('notifSoundToggle').checked = true;
   }
 
+  // Restore modifier highlight setting
+  const savedModHighlight = localStorage.getItem('comfyStudioModHighlight');
+  if (savedModHighlight === 'false') {
+    state.modifierHighlightEnabled = false;
+    const tog = document.getElementById('modifierHighlightToggle');
+    if (tog) tog.checked = false;
+  }
+
   // Auto-scan for CSV files
   scanAutoCompleteFolder();
+
+  // Restore autocomplete tag-formatting settings
+  const savedAcSettings = localStorage.getItem('comfyStudioAcSettings');
+  if (savedAcSettings) {
+    try {
+      const ac = JSON.parse(savedAcSettings);
+      state.acEscapeParens = !!ac.escapeParens;
+      state.acReplaceUnderscores = !!ac.replaceUnderscores;
+      const epTog = document.getElementById('acEscapeParensToggle');
+      if (epTog) epTog.checked = state.acEscapeParens;
+      const usTog = document.getElementById('acUnderscoreToggle');
+      if (usTog) usTog.checked = state.acReplaceUnderscores;
+    } catch(e) {}
+  }
 
   // Sync theme color pickers to current theme
   syncThemeColorPickers();
@@ -237,11 +327,21 @@ async function loadModels() {
     populateSel('diffusionSelect', diffusions);
     populateSel('vaeSelect', ['Automatic (embedded)', ...vaes]);
     populateSel('teSelect', ['none', ...textEncoders]);
+    // Also populate enhance model selects
+    populateSel('enhanceCheckpointSelect', checkpoints);
+    populateSel('enhanceDiffusionSelect', diffusions);
+    populateSel('enhanceVaeSelect', ['Automatic (embedded)', ...vaes]);
+    populateSel('enhanceTeSelect', ['none', ...textEncoders]);
     state.availableLoras = loras;
-    document.querySelectorAll('.lora-sel').forEach(sel => {
-      const cur = sel.value;
-      populateSel(sel, loras);
-      sel.value = cur;
+    // Re-init search on existing lora items with refreshed list
+    document.querySelectorAll('.lora-item').forEach(item => {
+      const cur = item.querySelector('.lora-sel').value;
+      setupLoraSearch(item, loras);
+      if (cur) {
+        item.querySelector('.lora-sel').value = cur;
+        const si = item.querySelector('.lora-search-input');
+        if (si) si.value = cur;
+      }
     });
   } catch(e) {
     console.warn('Model load failed:', e);
@@ -298,6 +398,18 @@ function switchModelType(type, btn) {
   document.getElementById('diffusionRow').classList.toggle('hidden', type !== 'diffusion');
 }
 
+function switchEnhanceModelType(type, btn) {
+  state.enhanceModelType = type;
+  // Update only buttons in the enhance panel segmented control
+  const enhanceAdvBody = btn.closest('.enhance-advanced-body');
+  if (enhanceAdvBody) {
+    enhanceAdvBody.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  const diffRow = document.getElementById('enhanceDiffusionRow');
+  if (diffRow) diffRow.classList.toggle('hidden', type !== 'diffusion');
+}
+
 // ─────────────────────────────────────────────
 // PROMPT TABS
 // ─────────────────────────────────────────────
@@ -312,56 +424,113 @@ function switchPromptTab(tab, btn) {
 // ─────────────────────────────────────────────
 // TOKEN COUNT — cumulative from ALL prompts + character prompts
 // ─────────────────────────────────────────────
+function toggleTokenCount(enabled) {
+  state.tokenCountVisible = enabled;
+  const bar = document.getElementById('tokenCountBar');
+  if (bar) bar.style.display = enabled ? 'flex' : 'none';
+  // Keep settings toggles in sync
+  const mainTog = document.getElementById('tokenCountToggle');
+  if (mainTog) mainTog.checked = enabled;
+  const settingsTog = document.getElementById('tokenCountSettingsToggle');
+  if (settingsTog) settingsTog.checked = enabled;
+  localStorage.setItem('comfyStudioTokenCount', enabled);
+}
+
+function countTokens(text) {
+  if (!text || !text.trim()) return 0;
+  // Better approximation: split on commas and whitespace, count non-empty tokens
+  // Each word/subword counts roughly as a token; parenthetical weights don't add tokens
+  const clean = text.replace(/\(([^)]*):[\d.]+\)/g, '$1'); // strip weights
+  return clean.trim().split(/[\s,]+/).filter(t => t.length > 0).length;
+}
+
 function updateTokenCount() {
-  function countTokens(text) {
-    if (!text || !text.trim()) return 0;
-    return text.trim().split(/[,\s]+/).filter(Boolean).length;
-  }
+  if (!state.tokenCountVisible) return;
 
   const posText = document.getElementById('positivePrompt')?.value || '';
   const negText = document.getElementById('negativePrompt')?.value || '';
   const qualText = (state.qualityTagsEnabled && state.qualityTagsText) ? state.qualityTagsText : '';
   const negQualText = (state.negQualityTagsEnabled && state.negQualityTagsText) ? state.negQualityTagsText : '';
 
-  // Add character prompt tokens
+  // Count only the active prompt tab for display, but show total with chars
+  const activeIsPositive = document.querySelector('.ptab.active')?.textContent?.includes('Positive');
+  const activeText = activeIsPositive
+    ? ((qualText ? qualText + ', ' : '') + posText)
+    : ((negQualText ? negQualText + ', ' : '') + negText);
+
+  // Add character prompt tokens to positive
   let charTokens = 0;
-  state.characters.forEach(ch => {
-    if (!ch.enabled) return;
-    const item = document.querySelector(`.char-item[data-charid="${ch.id}"]`);
-    if (item) {
-      charTokens += countTokens(item.querySelector('.char-ta')?.value || '');
-    }
-  });
-
-  const total = countTokens(posText) + countTokens(negText) +
-                countTokens(qualText) + countTokens(negQualText) + charTokens;
-
-  document.getElementById('tokenCount').textContent = total;
-
-  // Total token budget = 75 per chunk; show chunks
-  const chunks = Math.max(1, Math.ceil(total / 75));
-  document.getElementById('tokenTotal').textContent = chunks * 75;
-
-  const warn = document.getElementById('tokenWarn');
-  if (total > 75) {
-    warn.textContent = `(${chunks} chunks)`;
-  } else {
-    warn.textContent = '';
+  if (activeIsPositive) {
+    state.characters.forEach(ch => {
+      if (!ch.enabled) return;
+      const item = document.querySelector(`.char-item[data-charid="${ch.id}"]`);
+      if (item) {
+        charTokens += countTokens(item.querySelector('.char-ta')?.value || '');
+      }
+    });
   }
+
+  const total = countTokens(activeText) + charTokens;
+  const chunks = Math.max(1, Math.ceil(total / 75));
+  const budget = chunks * 75;
+
+  const countEl = document.getElementById('tokenCount');
+  const totalEl = document.getElementById('tokenTotal');
+  const warnEl  = document.getElementById('tokenWarn');
+
+  if (countEl) countEl.textContent = total;
+  if (totalEl) totalEl.textContent = budget;
+  if (warnEl) {
+    if (total > 75) {
+      warnEl.textContent = `(${chunks} chunks)`;
+    } else {
+      warnEl.textContent = '';
+    }
+  }
+
+  // Color the count red when over budget
+  if (countEl) countEl.style.color = total > budget ? 'var(--negative)' : '';
 }
 
 // ─────────────────────────────────────────────
 // PROMPT INTENSITY HIGHLIGHTING
 // ─────────────────────────────────────────────
+function toggleModifierHighlight(enabled) {
+  state.modifierHighlightEnabled = enabled;
+  // Sync the settings toggle
+  const settingsTog = document.getElementById('modifierHighlightToggle');
+  if (settingsTog) settingsTog.checked = enabled;
+  localStorage.setItem('comfyStudioModHighlight', enabled);
+  // Clear or re-render highlights
+  ['positive', 'negative'].forEach(side => {
+    const layer = document.getElementById(side === 'positive' ? 'highlightLayerPositive' : 'highlightLayerNegative');
+    if (!layer) return;
+    if (!enabled) {
+      layer.innerHTML = '';
+    } else {
+      updatePromptHighlight(side);
+    }
+  });
+}
+
 function updatePromptHighlight(side) {
   const ta = document.getElementById(side === 'positive' ? 'positivePrompt' : 'negativePrompt');
   const layer = document.getElementById(side === 'positive' ? 'highlightLayerPositive' : 'highlightLayerNegative');
   if (!ta || !layer) return;
- 
+
+  if (!state.modifierHighlightEnabled) {
+    layer.innerHTML = '';
+    return;
+  }
+
   const text = ta.value;
   // Replace (tag:weight) patterns with highlighted spans; escape everything else
   const escaped = escapeHTMLPreserveStructure(text);
   layer.innerHTML = escaped;
+  // Sync scroll and font metrics so overlay aligns with textarea
+  layer.style.fontSize = getComputedStyle(ta).fontSize;
+  layer.style.lineHeight = getComputedStyle(ta).lineHeight;
+  layer.style.fontFamily = getComputedStyle(ta).fontFamily;
   syncHighlightScroll(side);
 }
  
@@ -473,9 +642,118 @@ function addCharacter() {
     const ch = state.characters.find(c => c.id === id);
     if (ch) ch.prompt = ta.value;
     updateTokenCount();
+    updateCharHighlight(ta);
   });
+  ta.addEventListener('scroll', () => syncCharHighlightScroll(ta));
 
   document.getElementById('characterList').appendChild(clone);
+
+  // After appending, wire up autocomplete on the real DOM element
+  const realItem = document.querySelector(`.char-item[data-charid="${id}"]`);
+  if (realItem) {
+    const realTa = realItem.querySelector('.char-ta');
+    setupCharAutocomplete(realTa);
+  }
+}
+
+function updateCharHighlight(ta) {
+  const wrap = ta.closest('.char-prompt-wrap');
+  if (!wrap) return;
+  const layer = wrap.querySelector('.char-highlight-layer');
+  if (!layer) return;
+  if (!state.modifierHighlightEnabled) { layer.innerHTML = ''; return; }
+  layer.innerHTML = escapeHTMLPreserveStructure(ta.value);
+  layer.style.fontSize    = getComputedStyle(ta).fontSize;
+  layer.style.lineHeight  = getComputedStyle(ta).lineHeight;
+  layer.style.fontFamily  = getComputedStyle(ta).fontFamily;
+  syncCharHighlightScroll(ta);
+}
+
+function syncCharHighlightScroll(ta) {
+  const wrap = ta.closest('.char-prompt-wrap');
+  if (!wrap) return;
+  const layer = wrap.querySelector('.char-highlight-layer');
+  if (!layer) return;
+  layer.scrollTop  = ta.scrollTop;
+  layer.scrollLeft = ta.scrollLeft;
+}
+
+let _charAcHandlers = [];
+
+function setupCharAutocomplete(ta) {
+  if (!ta) return;
+  let dropdown = null;
+
+  function showAC(matches) {
+    hideAC();
+    if (!matches.length) return;
+    dropdown = document.createElement('div');
+    dropdown.className = 'autocomplete-list';
+    matches.forEach((m, i) => {
+      const item = document.createElement('div');
+      item.className = 'autocomplete-item' + (i === 0 ? ' active' : '');
+      item.textContent = m;
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        acceptTag(m);
+        hideAC();
+      });
+      dropdown.appendChild(item);
+    });
+    const rect = ta.getBoundingClientRect();
+    dropdown.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.bottom+2}px;width:${rect.width}px`;
+    document.body.appendChild(dropdown);
+  }
+
+  function hideAC() {
+    if (dropdown) { dropdown.remove(); dropdown = null; }
+  }
+
+  function setACActive(items, idx) {
+    items.forEach((it, i) => it.classList.toggle('active', i === idx));
+  }
+
+  function acceptTag(tag) {
+    const cur = getTagAtCursor(ta);
+    if (!cur) return;
+    const start = ta.selectionStart - cur.length;
+    const end   = ta.selectionStart;
+    ta.value = ta.value.slice(0, start) + tag + ta.value.slice(end);
+    ta.selectionStart = ta.selectionEnd = start + tag.length;
+    updateTokenCount();
+    updateCharHighlight(ta);
+  }
+
+  const onInput = () => {
+    if (!state.autocompleteData.length) return;
+    const cur = getTagAtCursor(ta);
+    if (!cur || cur.length < 2) { hideAC(); return; }
+    const matches = state.autocompleteData
+      .filter(t => t.toLowerCase().startsWith(cur.toLowerCase()))
+      .slice(0, 8);
+    if (!matches.length) { hideAC(); return; }
+    showAC(matches);
+  };
+
+  const onKeydown = e => {
+    if (!dropdown) return;
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    const active = dropdown.querySelector('.autocomplete-item.active');
+    let idx = [...items].indexOf(active);
+    if (e.key === 'ArrowDown')  { e.preventDefault(); setACActive(items, Math.min(idx+1, items.length-1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setACActive(items, Math.max(idx-1, 0)); }
+    else if (e.key === 'Enter' || e.key === 'Tab') {
+      const a = dropdown.querySelector('.autocomplete-item.active');
+      if (a) { e.preventDefault(); acceptTag(a.textContent); hideAC(); }
+    } else if (e.key === 'Escape') hideAC();
+  };
+
+  const onBlur = () => setTimeout(hideAC, 150);
+
+  ta.addEventListener('input', onInput);
+  ta.addEventListener('keydown', onKeydown);
+  ta.addEventListener('blur', onBlur);
+  _charAcHandlers.push([ta, 'input', onInput], [ta, 'keydown', onKeydown], [ta, 'blur', onBlur]);
 }
 
 function removeCharacter(btn) {
@@ -546,16 +824,97 @@ function addLora() {
 
   const tpl = document.getElementById('loraTemplate');
   const clone = tpl.content.cloneNode(true);
-  const sel = clone.querySelector('.lora-sel');
-
-  if (state.availableLoras.length > 0) {
-    populateSel(sel, state.availableLoras);
-  } else {
-    const o = document.createElement('option');
-    o.textContent = 'No LoRAs found';
-    sel.appendChild(o);
-  }
   list.appendChild(clone);
+
+  // Wire up the search for the newly added item
+  const item = list.querySelector('.lora-item:last-child');
+  setupLoraSearch(item, state.availableLoras);
+}
+
+function setupLoraSearch(item, loras) {
+  const input    = item.querySelector('.lora-search-input');
+  const dropdown = item.querySelector('.lora-search-dropdown');
+  const hidden   = item.querySelector('.lora-sel');
+
+  // Pre-select first lora if any
+  if (loras.length > 0 && !hidden.value) {
+    hidden.value  = loras[0];
+    input.value   = loras[0];
+  }
+
+  function showDropdown(filter) {
+    const q = filter.toLowerCase();
+    const matches = q
+      ? loras.filter(l => l.toLowerCase().includes(q)).slice(0, 12)
+      : loras.slice(0, 12);
+    if (!matches.length) { dropdown.style.display = 'none'; return; }
+    dropdown.innerHTML = '';
+    matches.forEach((name, i) => {
+      const row = document.createElement('div');
+      row.className = 'lora-dd-item' + (i === 0 ? ' active' : '');
+      row.textContent = name;
+      row.addEventListener('mousedown', e => {
+        e.preventDefault();
+        hidden.value = name;
+        input.value  = name;
+        dropdown.style.display = 'none';
+      });
+      dropdown.appendChild(row);
+    });
+    dropdown.style.display = 'block';
+  }
+
+  function getActive() {
+    return dropdown.querySelector('.lora-dd-item.active');
+  }
+
+  input.addEventListener('focus', () => showDropdown(input.value));
+  input.addEventListener('input', () => {
+    hidden.value = '';
+    showDropdown(input.value);
+  });
+  input.addEventListener('keydown', e => {
+    if (dropdown.style.display === 'none') return;
+    const items = [...dropdown.querySelectorAll('.lora-dd-item')];
+    const idx   = items.indexOf(getActive());
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items.forEach(it => it.classList.remove('active'));
+      items[Math.min(idx + 1, items.length - 1)]?.classList.add('active');
+      items[Math.min(idx + 1, items.length - 1)]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items.forEach(it => it.classList.remove('active'));
+      items[Math.max(idx - 1, 0)]?.classList.add('active');
+      items[Math.max(idx - 1, 0)]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      const active = getActive();
+      if (active) {
+        e.preventDefault();
+        hidden.value = active.textContent;
+        input.value  = active.textContent;
+        dropdown.style.display = 'none';
+      }
+    } else if (e.key === 'Escape') {
+      dropdown.style.display = 'none';
+      // Revert to last saved value
+      if (hidden.value) input.value = hidden.value;
+    }
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      dropdown.style.display = 'none';
+      // If nothing selected, snap to closest match
+      if (!hidden.value && input.value) {
+        const match = loras.find(l => l.toLowerCase() === input.value.toLowerCase())
+                   || loras.find(l => l.toLowerCase().includes(input.value.toLowerCase()));
+        if (match) { hidden.value = match; input.value = match; }
+        else if (loras.length) { hidden.value = loras[0]; input.value = loras[0]; }
+      } else if (!hidden.value && loras.length) {
+        hidden.value = loras[0]; input.value = loras[0];
+      }
+    }, 150);
+  });
 }
 
 function removeLora(btn) {
@@ -836,13 +1195,27 @@ function setImg2Img(file, dataUrl) {
   state.img2imgDataUrl = dataUrl;
   document.getElementById('img2imgPreview').src = dataUrl;
   document.getElementById('img2imgStrip').style.display = 'block';
+  updateInpaintBtnVisibility();
 }
 
 function removeImg2Img() {
-  state.img2imgFile = null;
+  // Clear all inpaint state so it doesn't bleed into future generations
+  state.inpaintMaskBlob     = null;
+  state.inpaintOrigDataUrl  = null;
+  state.inpaintOrigFile     = null;
+  // Clear the mask canvas too
+  const maskCanvas = document.getElementById('inpaintMaskCanvas');
+  if (maskCanvas) {
+    const ctx = maskCanvas.getContext('2d');
+    ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+  }
+  state.img2imgFile    = null;
   state.img2imgDataUrl = null;
   document.getElementById('img2imgStrip').style.display = 'none';
   document.getElementById('img2imgPreview').src = '';
+  const controls = document.getElementById('inpaintControls');
+  if (controls) controls.style.display = 'none';
+  updateInpaintBtnVisibility();
 }
 
 function updateImg2ImgDenoiseLabel(slider) {
@@ -932,10 +1305,6 @@ function toggleHistoryPanel() {
 }
 
 // Bug fix: history help tooltip on hover, not click
-function showHistoryHelp(show) {
-  const popup = document.getElementById('historyHelpPopup');
-  popup.classList.toggle('open', show);
-}
 
 function addToHistory(imageUrl, metaObj) {
   state.historyCounter++;
@@ -984,14 +1353,14 @@ function deleteHistoryItem(id) {
   const el = document.querySelector(`.history-item[data-histid="${id}"]`);
   if (el) el.remove();
   if (document.querySelectorAll('.history-item').length === 0) {
-    document.getElementById('historyList').innerHTML = '<p class="empty-hint history-empty">Generated images will appear here</p>';
+    document.getElementById('historyList').innerHTML = '<p class="empty-hint history-empty">Generated images will appear here. Images in history will not be saved after closing the tab.</p>';
   }
 }
 
 function clearHistory() {
   showConfirm('Clear all history? This cannot be undone.', () => {
     state.history = [];
-    document.getElementById('historyList').innerHTML = '<p class="empty-hint history-empty">Generated images will appear here</p>';
+    document.getElementById('historyList').innerHTML = '<p class="empty-hint history-empty">Generated images will appear here. Images in history will not be saved after closing the tab</p>';
   });
 }
 
@@ -1059,48 +1428,71 @@ function onRescaleCFGToggle() {
   state.rescaleCFGEnabled = document.getElementById('rescaleCFGToggle').checked;
   document.getElementById('rescaleCFGSliderWrap').style.display = state.rescaleCFGEnabled ? 'flex' : 'none';
 }
-const DEFAULT_THEME = {
-  '--bg-void': '#0d1a0d',
-  '--bg-panel': '#101e10',
-  '--bg-card': '#122012',
-  '--bg-input': '#0b160b',
-  '--bg-elevated': '#182818',
-  '--bg-overlay': 'rgba(8,18,8,0.90)',
-  '--border-faint': 'rgba(60,180,60,0.10)',
-  '--border-mid': 'rgba(80,200,80,0.18)',
-  '--border-accent': 'rgba(80,255,80,0.30)',
-  '--accent': '#39ff14',
-  '--accent-glow': 'rgba(57,255,20,0.14)',
-  '--accent-bright': '#80ff60',
-  '--accent-dim': 'rgba(57,255,20,0.40)',
-  '--positive': '#39ff14',
-  '--negative': '#ff4444',
-  '--text-hi': '#c8ffc0',
-  '--text-mid': '#60a860',
-  '--text-lo': '#2e602e',
-  '--modifier-low': 'rgba(57,255,20,0.20)',
-  '--modifier-high': 'rgba(255,68,68,0.25)',
-  '--gen-btn-from': '#1a8010',
-  '--gen-btn-to': '#39ff14'
-};
 
-function resetCustomTheme() {
-  Object.entries(DEFAULT_THEME).forEach(([varName, val]) => {
-    document.documentElement.style.setProperty(varName, val);
-    // If you have inputs bound to these, update them too:
-    const input = document.querySelector(`[data-var="${varName}"]`);
-    if (input) input.value = val;
-  });
+function resetThemeToDefault() {
+  _customThemeOverrides = {};
+  // Re-apply the current preset theme cleanly
+  applyTheme(state.currentTheme || 'novelai-dark', null, false);
+  // Clear font inputs
+  const fontDisp = document.getElementById('tc-font-disp');
+  const fontUi = document.getElementById('tc-font-ui');
+  if (fontDisp) fontDisp.value = '';
+  if (fontUi) fontUi.value = '';
+  syncThemeColorPickers();
   localStorage.removeItem('customThemeConfig');
-  console.log('Custom theme reset to defaults.');
 }
 // ─────────────────────────────────────────────
 // THEMES
 // ─────────────────────────────────────────────
+
+// Stored custom theme overrides applied when customThemeEnabled is true
+let _customThemeOverrides = {};
+state.customThemeEnabled = false;
+
+function toggleCustomTheme(enabled) {
+  state.customThemeEnabled = enabled;
+  const controls = document.getElementById('customThemeControls');
+  if (controls) controls.style.display = enabled ? 'block' : 'none';
+
+  if (enabled) {
+    // Re-apply stored overrides on top of current theme
+    Object.entries(_customThemeOverrides).forEach(([k, v]) => {
+      document.documentElement.style.setProperty(k, v);
+    });
+    syncThemeColorPickers();
+  } else {
+    // Revert to dark theme (clear all inline CSS var overrides)
+    applyTheme('novelai-dark', null, true);
+    // Mark dark theme button active
+    document.querySelectorAll('.theme-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.theme === 'novelai-dark');
+    });
+    // Re-sync pickers to the reverted theme
+    syncThemeColorPickers();
+  }
+  localStorage.setItem('comfyStudioCustomThemeEnabled', enabled);
+}
+
 function applyTheme(themeName, btn, silent) {
+  // Clear any inline CSS var overrides first (so the [data-theme] attribute takes full effect)
+  const varsToClear = ['--bg-void','--bg-panel','--bg-card','--bg-input','--bg-elevated',
+    '--bg-overlay','--border-faint','--border-mid','--border-accent','--accent','--accent-glow',
+    '--accent-bright','--accent-dim','--positive','--positive-glow','--negative','--negative-glow',
+    '--text-hi','--text-mid','--text-lo','--modifier-low','--modifier-high','--gen-btn-from','--gen-btn-to',
+    '--font-disp','--font-ui'];
+  varsToClear.forEach(v => document.documentElement.style.removeProperty(v));
+
   document.documentElement.setAttribute('data-theme', themeName);
   state.currentTheme = themeName;
   localStorage.setItem('comfyStudioTheme', themeName);
+
+  // If custom theme is enabled, re-apply overrides on top
+  if (state.customThemeEnabled) {
+    Object.entries(_customThemeOverrides).forEach(([k, v]) => {
+      document.documentElement.style.setProperty(k, v);
+    });
+  }
+
   if (!silent) {
     document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
@@ -1143,14 +1535,28 @@ function toHex(color) {
 }
 
 function applyCustomThemeVar(varName, value) {
+  _customThemeOverrides[varName] = value;
   document.documentElement.style.setProperty(varName, value);
+}
+
+function applyCustomThemeVarRgba(varName, hexColor, alpha) {
+  // Convert hex to rgba
+  const r = parseInt(hexColor.slice(1,3),16);
+  const g = parseInt(hexColor.slice(3,5),16);
+  const b = parseInt(hexColor.slice(5,7),16);
+  const val = `rgba(${r},${g},${b},${alpha})`;
+  _customThemeOverrides[varName] = val;
+  document.documentElement.style.setProperty(varName, val);
 }
 
 function applyCustomFontVar(varName, fontName, fallback) {
   if (!fontName.trim()) {
+    delete _customThemeOverrides[varName];
     document.documentElement.style.removeProperty(varName);
   } else {
-    document.documentElement.style.setProperty(varName, `'${fontName}', ${fallback}`);
+    const val = `'${fontName}', ${fallback}`;
+    _customThemeOverrides[varName] = val;
+    document.documentElement.style.setProperty(varName, val);
   }
 }
 
@@ -1288,7 +1694,16 @@ let _acHandlers = [];
 function removeAutocompleteHandlers() {
   _acHandlers.forEach(([el, ev, fn]) => el.removeEventListener(ev, fn));
   _acHandlers = [];
+  _charAcHandlers.forEach(([el, ev, fn]) => el.removeEventListener(ev, fn));
+  _charAcHandlers = [];
   document.querySelectorAll('.autocomplete-list').forEach(el => el.remove());
+}
+
+function saveAcSettings() {
+  localStorage.setItem('comfyStudioAcSettings', JSON.stringify({
+    escapeParens: state.acEscapeParens,
+    replaceUnderscores: state.acReplaceUnderscores,
+  }));
 }
 
 function setupPromptAutocomplete() {
@@ -1348,10 +1763,13 @@ function setupPromptAutocomplete() {
     function acceptTag(textarea, tag) {
       const cur = getTagAtCursor(textarea);
       if (!cur) return;
+      let finalTag = tag;
+      if (state.acReplaceUnderscores) finalTag = finalTag.replace(/_/g, ' ');
+      if (state.acEscapeParens) finalTag = finalTag.replace(/\(/g, '\\(').replace(/\)/g, '\\)');
       const start = textarea.selectionStart - cur.length;
       const end   = textarea.selectionStart;
-      textarea.value = textarea.value.slice(0, start) + tag + textarea.value.slice(end);
-      textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+      textarea.value = textarea.value.slice(0, start) + finalTag + textarea.value.slice(end);
+      textarea.selectionStart = textarea.selectionEnd = start + finalTag.length;
       updateTokenCount();
     }
 
@@ -1360,6 +1778,9 @@ function setupPromptAutocomplete() {
     ta.addEventListener('blur', onBlur);
     _acHandlers.push([ta,'input',onInput],[ta,'keydown',onKeydown],[ta,'blur',onBlur]);
   });
+
+  // Also (re-)attach autocomplete to all existing character textareas
+  document.querySelectorAll('.char-ta').forEach(cta => setupCharAutocomplete(cta));
 }
 
 function getTagAtCursor(textarea) {
@@ -1506,6 +1927,9 @@ function buildWorkflow(img2imgNodeId) {
 // GENERATE
 // ─────────────────────────────────────────────
 async function generate() {
+  // Route to inpaint workflow when a mask is active
+  if (state.inpaintMaskBlob) { await generateInpaint(); return; }
+
   if (state.generating) return;
 
   // Marble cost check
@@ -1887,13 +2311,37 @@ async function doEnhance() {
     const nodes = {};
     let nid = 1; const id = () => String(nid++);
 
-    // Load checkpoint for enhance pass
-    const ckptId = id();
-    nodes[ckptId] = {
-      class_type: 'CheckpointLoaderSimple',
-      inputs: { ckpt_name: document.getElementById('checkpointSelect').value }
-    };
-    const modelSrc = [ckptId, 0], clipSrc = [ckptId, 1], vaeSrc = [ckptId, 2];
+    // Load model for enhance pass (use enhance-specific selection)
+    let modelSrc, clipSrc, vaeSrc;
+    if (state.enhanceModelType === 'diffusion') {
+      const unetId = id();
+      nodes[unetId] = {
+        class_type: 'UNETLoader',
+        inputs: { unet_name: document.getElementById('enhanceDiffusionSelect').value, weight_dtype: 'default' }
+      };
+      modelSrc = [unetId, 0];
+      // For diffusion model, fall back to main VAE
+      const vaeRaw = document.getElementById('vaeSelect').value;
+      if (vaeRaw && vaeRaw !== 'Automatic (embedded)') {
+        const vaeId = id();
+        nodes[vaeId] = { class_type: 'VAELoader', inputs: { vae_name: vaeRaw } };
+        vaeSrc = [vaeId, 0];
+      }
+      // Use main CLIP
+      const teVal = document.getElementById('teSelect')?.value;
+      if (teVal && teVal !== 'none') {
+        const teId = id();
+        nodes[teId] = { class_type: 'CLIPLoader', inputs: { clip_name: teVal, type: document.getElementById('teType')?.value || 'stable_diffusion' } };
+        clipSrc = [teId, 0];
+      }
+    } else {
+      const ckptId = id();
+      nodes[ckptId] = {
+        class_type: 'CheckpointLoaderSimple',
+        inputs: { ckpt_name: document.getElementById('enhanceCheckpointSelect').value }
+      };
+      modelSrc = [ckptId, 0]; clipSrc = [ckptId, 1]; vaeSrc = [ckptId, 2];
+    }
 
     const loadId = id();
     nodes[loadId] = { class_type: 'LoadImage', inputs: { image: name, upload: 'image' } };
@@ -2090,43 +2538,54 @@ function scheduleSave() {
 }
 
 function saveSession() {
-  const data = {
-    comfyUrl: document.getElementById('comfyUrl')?.value,
-    positivePrompt: document.getElementById('positivePrompt')?.value,
-    negativePrompt: document.getElementById('negativePrompt')?.value,
-    modelType: state.modelType,
-    checkpointSelect: document.getElementById('checkpointSelect')?.value,
-    diffusionSelect: document.getElementById('diffusionSelect')?.value,
-    vaeSelect: document.getElementById('vaeSelect')?.value,
-    teSelect: document.getElementById('teSelect')?.value,
-    teType: document.getElementById('teType')?.value,
-    samplerName: document.getElementById('samplerName')?.value,
-    scheduler: document.getElementById('scheduler')?.value,
-    stepsNum: document.getElementById('stepsNum')?.value,
-    cfgNum: document.getElementById('cfgNum')?.value,
-    denoiseNum: document.getElementById('denoiseNum')?.value,
-    batchNum: document.getElementById('batchNum')?.value,
-    resW: state.resW, resH: state.resH,
-    resCategory: state.resCategory,
-    resOrient: state.resOrient,
-    resStandard: state.resStandard,
-    customMode: state.customMode,
-    customW: document.getElementById('customW')?.value,
-    customH: document.getElementById('customH')?.value,
-    seedInput: document.getElementById('seedInput')?.value,
-    seedLocked: state.seedLocked,
-    characters: state.characters,
-    charCounter: state.charCounter,
-    loras: getActiveLoRAs(),
-    qualityTagsEnabled: state.qualityTagsEnabled,
-    qualityTagsText: document.getElementById('qualityTagsText')?.value,
-    negQualityTagsEnabled: state.negQualityTagsEnabled,
-    negQualityTagsText: document.getElementById('negQualityTagsText')?.value,
-    vPrediction: state.vPrediction,
-    rescaleCFGEnabled: state.rescaleCFGEnabled,
-  };
+  const sp = state.savePrefs;
+  const data = {};
+
+  if (sp['save-comfyUrl'])        data.comfyUrl       = document.getElementById('comfyUrl')?.value;
+  if (sp['save-positivePrompt'])  data.positivePrompt  = document.getElementById('positivePrompt')?.value;
+  if (sp['save-negativePrompt'])  data.negativePrompt  = document.getElementById('negativePrompt')?.value;
+  if (sp['save-modelType'])       data.modelType       = state.modelType;
+  if (sp['save-checkpointSelect'])data.checkpointSelect= document.getElementById('checkpointSelect')?.value;
+  if (sp['save-diffusionSelect']) data.diffusionSelect = document.getElementById('diffusionSelect')?.value;
+  if (sp['save-vaeSelect'])       data.vaeSelect       = document.getElementById('vaeSelect')?.value;
+  if (sp['save-teSelect'])        { data.teSelect = document.getElementById('teSelect')?.value; data.teType = document.getElementById('teType')?.value; }
+  if (sp['save-sampler'])         { data.samplerName = document.getElementById('samplerName')?.value; data.scheduler = document.getElementById('scheduler')?.value; }
+  if (sp['save-steps'])           data.stepsNum        = document.getElementById('stepsNum')?.value;
+  if (sp['save-cfg'])             data.cfgNum          = document.getElementById('cfgNum')?.value;
+  if (sp['save-denoise'])         data.denoiseNum      = document.getElementById('denoiseNum')?.value;
+  if (sp['save-batch'])           data.batchNum        = document.getElementById('batchNum')?.value;
+  if (sp['save-resolution'])      { data.resCategory = state.resCategory; data.resOrient = state.resOrient; data.resStandard = state.resStandard; data.resW = state.resW; data.resH = state.resH; }
+  if (sp['save-customRes'])       { data.customMode = state.customMode; data.customW = document.getElementById('customW')?.value; data.customH = document.getElementById('customH')?.value; }
+  if (sp['save-seed'])            { data.seedInput = document.getElementById('seedInput')?.value; data.seedLocked = state.seedLocked; }
+  if (sp['save-characters'])      { data.characters = state.characters; data.charCounter = state.charCounter; }
+  if (sp['save-loras'])           data.loras           = getActiveLoRAs();
+  if (sp['save-qualityTags'])     { data.qualityTagsEnabled = state.qualityTagsEnabled; data.qualityTagsText = document.getElementById('qualityTagsText')?.value; data.negQualityTagsEnabled = state.negQualityTagsEnabled; data.negQualityTagsText = document.getElementById('negQualityTagsText')?.value; }
+  if (sp['save-vPrediction'])     data.vPrediction     = state.vPrediction;
+  if (sp['save-rescaleCFG'])      { data.rescaleCFGEnabled = state.rescaleCFGEnabled; data.rescaleCFGMultiplier = parseFloat(document.getElementById('rescaleCFGNum')?.value) || 0.7; }
+  if (sp['save-varSettings'])     { data.varDenoise = document.getElementById('varDenoiseNum')?.value; data.varBatch = document.getElementById('varBatchNum')?.value; }
+  if (sp['save-enhanceSettings']) {
+    data.enhanceModelType       = state.enhanceModelType;
+    data.enhanceCheckpointSelect= document.getElementById('enhanceCheckpointSelect')?.value;
+    data.enhanceDiffusionSelect = document.getElementById('enhanceDiffusionSelect')?.value;
+    data.enhanceVaeSelect       = document.getElementById('enhanceVaeSelect')?.value;
+    data.enhanceTeSelect        = document.getElementById('enhanceTeSelect')?.value;
+    data.enhanceTeType          = document.getElementById('enhanceTeType')?.value;
+    data.enhanceUpscaleModel    = document.getElementById('enhanceUpscaleModel')?.value;
+    data.enhanceUpscaleFactor   = document.getElementById('enhanceUpscaleFactor')?.value;
+    data.enhanceDenoiseNum      = document.getElementById('enhanceDenoiseNum')?.value;
+    data.enhanceSeed            = document.getElementById('enhanceSeed')?.value;
+    data.enhanceStepsNum        = document.getElementById('enhanceStepsNum')?.value;
+    data.enhanceCFGNum          = document.getElementById('enhanceCFGNum')?.value;
+    data.enhanceSampler         = document.getElementById('enhanceSampler')?.value;
+    data.enhanceScheduler       = document.getElementById('enhanceScheduler')?.value;
+  }
+
   localStorage.setItem('comfyStudioSession', JSON.stringify(data));
   localStorage.setItem('comfyStudioNotif', state.notifSoundEnabled);
+
+  // Flash status hint if save tab is open
+  const hint = document.getElementById('saveStatusHint');
+  if (hint) { hint.textContent = '✓ Saved.'; setTimeout(() => { hint.textContent = ''; }, 2000); }
 }
 
 function loadSessionStart() {
@@ -2216,6 +2675,12 @@ function loadSessionStart() {
       document.getElementById('rescaleCFGToggle').checked = true;
       document.getElementById('rescaleCFGSliderWrap').style.display = 'flex';
     }
+    if (data.rescaleCFGMultiplier != null) {
+      document.getElementById('rescaleCFGNum').value = data.rescaleCFGMultiplier;
+      syncNum('rescaleCFG');
+    }
+    if (data.varDenoise != null) { setVal('varDenoiseNum', data.varDenoise); }
+    if (data.varBatch != null)   { setVal('varBatchNum', data.varBatch); }
 
     if (data.characters && data.characters.length > 0) {
       document.getElementById('characterList').innerHTML = '';
@@ -2255,13 +2720,40 @@ function loadSessionModels(data) {
   if (!data) return;
   const setVal = (id, val) => {
     const el = document.getElementById(id);
-    if (el && val !== undefined) el.value = val;
+    if (el && val !== undefined && val !== null) el.value = val;
   };
   setVal('checkpointSelect', data.checkpointSelect);
   setVal('diffusionSelect', data.diffusionSelect);
   setVal('vaeSelect', data.vaeSelect);
   setVal('teSelect', data.teSelect);
   setVal('teType', data.teType);
+
+  // Restore enhance model selections
+  if (data.enhanceModelType) {
+    state.enhanceModelType = data.enhanceModelType;
+    const checkRow = document.getElementById('enhanceCheckpointRow');
+    const diffRow  = document.getElementById('enhanceDiffusionRow');
+    if (checkRow) checkRow.classList.toggle('hidden', data.enhanceModelType !== 'checkpoint');
+    if (diffRow)  diffRow.classList.toggle('hidden', data.enhanceModelType !== 'diffusion');
+    // Update segmented buttons in enhance card
+    document.querySelectorAll('.enh-seg').forEach(b => {
+      b.classList.toggle('active', b.textContent.toLowerCase().startsWith(data.enhanceModelType.substring(0,4)));
+    });
+  }
+  setVal('enhanceCheckpointSelect', data.enhanceCheckpointSelect);
+  setVal('enhanceDiffusionSelect',  data.enhanceDiffusionSelect);
+  setVal('enhanceVaeSelect',        data.enhanceVaeSelect);
+  setVal('enhanceTeSelect',         data.enhanceTeSelect);
+  setVal('enhanceTeType',           data.enhanceTeType);
+  setVal('enhanceUpscaleModel',     data.enhanceUpscaleModel);
+  if (data.enhanceUpscaleFactor != null) setVal('enhanceUpscaleFactor', data.enhanceUpscaleFactor);
+  if (data.enhanceDenoiseNum != null)    { document.getElementById('enhanceDenoiseNum').value = data.enhanceDenoiseNum; syncNum('enhanceDenoise'); }
+  if (data.enhanceSeed != null)          setVal('enhanceSeed', data.enhanceSeed);
+  if (data.enhanceStepsNum != null)      { document.getElementById('enhanceStepsNum').value = data.enhanceStepsNum; syncNum('enhanceSteps'); }
+  if (data.enhanceCFGNum != null)        { document.getElementById('enhanceCFGNum').value = data.enhanceCFGNum; syncNum('enhanceCFG'); }
+  setVal('enhanceSampler',  data.enhanceSampler);
+  setVal('enhanceScheduler',data.enhanceScheduler);
+
   if (data.loras && data.loras.length > 0) {
     document.getElementById('loraList').innerHTML = '';
     data.loras.forEach(l => {
@@ -2270,6 +2762,8 @@ function loadSessionModels(data) {
       const lastItem = items[items.length - 1];
       if (lastItem) {
         lastItem.querySelector('.lora-sel').value = l.name;
+        const searchInput = lastItem.querySelector('.lora-search-input');
+        if (searchInput) searchInput.value = l.name;
         const num = lastItem.querySelector('.lora-num');
         num.value = l.strength;
         loraNumInput(num);
@@ -2284,3 +2778,709 @@ document.addEventListener('change', scheduleSave);
 document.addEventListener('click', e => {
   if (e.target.tagName.toLowerCase() === 'button' || e.target.closest('button')) scheduleSave();
 });
+// ─────────────────────────────────────────────
+// SAVE PREFERENCES (was missing)
+// ─────────────────────────────────────────────
+function updateSavePrefs() {
+  document.querySelectorAll('.save-chk').forEach(chk => {
+    state.savePrefs[chk.id] = chk.checked;
+  });
+  localStorage.setItem('comfyStudioSavePrefs', JSON.stringify(state.savePrefs));
+}
+
+function confirmClearSave() {
+  showConfirm('Clear all saved session data? The page will reload.', () => {
+    localStorage.removeItem('comfyStudioSession');
+    localStorage.removeItem('comfyStudioSavePrefs');
+    const hint = document.getElementById('saveStatusHint');
+    if (hint) hint.textContent = '✓ Cleared. Reloading…';
+    setTimeout(() => location.reload(), 800);
+  });
+}
+
+// ─────────────────────────────────────────────
+// ENHANCE MODEL CARD COLLAPSE (was missing)
+// ─────────────────────────────────────────────
+function toggleEnhanceModelCard() {
+  const card = document.getElementById('enhanceModelCard');
+  if (!card) return;
+  card.classList.toggle('collapsed');
+}
+
+// ─────────────────────────────────────────────
+// INPAINT EXPERIMENTAL TOGGLE
+// ─────────────────────────────────────────────
+function toggleInpaint(enabled) {
+  state.inpaintEnabled = enabled;
+  localStorage.setItem('comfyStudioInpaint', enabled);
+  updateInpaintBtnVisibility();
+}
+
+// ─────────────────────────────────────────────
+// DRAW ON IMAGE MENU
+// ─────────────────────────────────────────────
+const drawState = {
+  isEraser: false,
+  isEyedrop: false,
+  painting: false,
+  color: '#ff6b9d',
+  brushSize: 12,
+  ctx: null,
+  lastX: 0, lastY: 0,
+};
+
+function openDrawMenu() {
+  if (!state.img2imgDataUrl) return;
+  const modal = document.getElementById('drawModal');
+  const backdrop = document.getElementById('drawModalBackdrop');
+  const baseImg = document.getElementById('drawBaseImg');
+  const canvas = document.getElementById('drawCanvas');
+
+  baseImg.src = state.img2imgDataUrl;
+  modal.classList.add('open');
+  backdrop.classList.add('open');
+
+  // Wait for image to load to size canvas
+  baseImg.onload = () => {
+    resizeDrawCanvas();
+  };
+  if (baseImg.complete) resizeDrawCanvas();
+
+  drawState.ctx = canvas.getContext('2d');
+  drawState.isEraser = false;
+  drawState.isEyedrop = false;
+  document.getElementById('drawEraserBtn').classList.remove('active');
+  document.getElementById('drawEyedropBtn').classList.remove('active');
+
+  setupDrawEvents(canvas);
+}
+
+function resizeDrawCanvas() {
+  const wrap = document.getElementById('drawCanvasWrap');
+  const canvas = document.getElementById('drawCanvas');
+  const img = document.getElementById('drawBaseImg');
+  const wrapW = wrap.clientWidth;
+  const wrapH = wrap.clientHeight;
+  const imgW = img.naturalWidth || wrapW;
+  const imgH = img.naturalHeight || wrapH;
+  const scale = Math.min(wrapW / imgW, wrapH / imgH, 1);
+  const displayW = Math.round(imgW * scale);
+  const displayH = Math.round(imgH * scale);
+  // Save old canvas data
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = canvas.width; tmpCanvas.height = canvas.height;
+  if (canvas.width > 0 && canvas.height > 0) {
+    tmpCanvas.getContext('2d').drawImage(canvas, 0, 0);
+  }
+  canvas.width = displayW;
+  canvas.height = displayH;
+  canvas.style.width = displayW + 'px';
+  canvas.style.height = displayH + 'px';
+  canvas.style.left = ((wrapW - displayW) / 2) + 'px';
+  canvas.style.top  = ((wrapH - displayH) / 2) + 'px';
+  // Restore old drawing scaled
+  if (tmpCanvas.width > 0 && tmpCanvas.height > 0) {
+    drawState.ctx = canvas.getContext('2d');
+    drawState.ctx.drawImage(tmpCanvas, 0, 0, displayW, displayH);
+  }
+}
+
+function setupDrawEvents(canvas) {
+  // Remove old listeners by cloning
+  const newCanvas = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+  drawState.ctx = newCanvas.getContext('2d');
+
+  const getPos = (e) => {
+    const rect = newCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
+
+  const startPaint = (e) => {
+    e.preventDefault();
+    if (drawState.isEyedrop) {
+      // Pick color from base image
+      pickColorFromImg(e, newCanvas, document.getElementById('drawBaseImg'), (hex) => {
+        drawState.color = hex;
+        document.getElementById('drawColor').value = hex;
+      });
+      return;
+    }
+    drawState.painting = true;
+    const pos = getPos(e);
+    drawState.lastX = pos.x; drawState.lastY = pos.y;
+    drawDot(newCanvas, pos.x, pos.y);
+  };
+  const movePaint = (e) => {
+    e.preventDefault();
+    if (!drawState.painting) return;
+    const pos = getPos(e);
+    drawLine(newCanvas, drawState.lastX, drawState.lastY, pos.x, pos.y);
+    drawState.lastX = pos.x; drawState.lastY = pos.y;
+  };
+  const endPaint = () => { drawState.painting = false; };
+
+  newCanvas.addEventListener('mousedown', startPaint);
+  newCanvas.addEventListener('mousemove', movePaint);
+  newCanvas.addEventListener('mouseup', endPaint);
+  newCanvas.addEventListener('mouseleave', endPaint);
+  newCanvas.addEventListener('touchstart', startPaint, {passive:false});
+  newCanvas.addEventListener('touchmove', movePaint, {passive:false});
+  newCanvas.addEventListener('touchend', endPaint);
+}
+
+function drawDot(canvas, x, y) {
+  const ctx = drawState.ctx || canvas.getContext('2d');
+  ctx.save();
+  if (drawState.isEraser) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = drawState.color;
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, drawState.brushSize / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawLine(canvas, x1, y1, x2, y2) {
+  const ctx = drawState.ctx || canvas.getContext('2d');
+  ctx.save();
+  if (drawState.isEraser) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = drawState.color;
+  }
+  ctx.lineWidth = drawState.brushSize;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function updateDrawBrushSize(val) {
+  drawState.brushSize = parseInt(val);
+  document.getElementById('drawBrushSizeVal').textContent = val;
+}
+
+function updateDrawColor(val) {
+  drawState.color = val;
+  drawState.isEraser = false;
+  document.getElementById('drawEraserBtn').classList.remove('active');
+}
+
+function toggleDrawEraser() {
+  drawState.isEraser = !drawState.isEraser;
+  drawState.isEyedrop = false;
+  document.getElementById('drawEraserBtn').classList.toggle('active', drawState.isEraser);
+  document.getElementById('drawEyedropBtn').classList.remove('active');
+}
+
+function toggleDrawEyedrop() {
+  drawState.isEyedrop = !drawState.isEyedrop;
+  drawState.isEraser = false;
+  document.getElementById('drawEyedropBtn').classList.toggle('active', drawState.isEyedrop);
+  document.getElementById('drawEraserBtn').classList.remove('active');
+}
+
+function pickColorFromImg(e, canvas, imgEl, callback) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  // Scale to natural image size
+  const scaleX = imgEl.naturalWidth / rect.width;
+  const scaleY = imgEl.naturalHeight / rect.height;
+  const tmpC = document.createElement('canvas');
+  tmpC.width = imgEl.naturalWidth; tmpC.height = imgEl.naturalHeight;
+  const tmpCtx = tmpC.getContext('2d');
+  try {
+    tmpCtx.drawImage(imgEl, 0, 0);
+    const px = tmpCtx.getImageData(Math.floor(x * scaleX), Math.floor(y * scaleY), 1, 1).data;
+    const hex = '#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2,'0')).join('');
+    callback(hex);
+  } catch(err) {
+    console.warn('Eyedrop pick failed (CORS?):', err);
+  }
+}
+
+function clearDraw() {
+  const canvas = document.getElementById('drawCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+async function saveDrawAndClose() {
+  const canvas = document.getElementById('drawCanvas');
+  const baseImg = document.getElementById('drawBaseImg');
+
+  // Merge: draw base image then overlay canvas onto a composite
+  const composite = document.createElement('canvas');
+  composite.width = baseImg.naturalWidth;
+  composite.height = baseImg.naturalHeight;
+  const cCtx = composite.getContext('2d');
+  cCtx.drawImage(baseImg, 0, 0);
+  // Scale drawing to natural resolution
+  cCtx.drawImage(canvas, 0, 0, composite.width, composite.height);
+
+  composite.toBlob(blob => {
+    const file = new File([blob], 'drawn.png', {type:'image/png'});
+    const dataUrl = URL.createObjectURL(blob);
+    setImg2Img(file, dataUrl);
+    closeDrawModal();
+  }, 'image/png');
+}
+
+function closeDrawModal() {
+  document.getElementById('drawModal').classList.remove('open');
+  document.getElementById('drawModalBackdrop').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────
+// INPAINT MASK MENU
+// ─────────────────────────────────────────────
+const inpaintState = {
+  isEraser: false,
+  painting: false,
+  brushSize: 20,
+  ctx: null,
+  lastX: 0, lastY: 0,
+};
+
+function openInpaintMenu() {
+  if (!state.img2imgDataUrl) return;
+  const modal = document.getElementById('inpaintModal');
+  const backdrop = document.getElementById('inpaintModalBackdrop');
+  // Always paint over the original unmasked image so re-editing works cleanly
+  const srcUrl = state.inpaintOrigDataUrl || state.img2imgDataUrl;
+  const baseImg = document.getElementById('inpaintBaseImg');
+  const canvas = document.getElementById('inpaintMaskCanvas');
+
+  baseImg.src = srcUrl;
+  modal.classList.add('open');
+  backdrop.classList.add('open');
+
+  baseImg.onload = () => resizeInpaintCanvas();
+  if (baseImg.complete && baseImg.naturalWidth) resizeInpaintCanvas();
+
+  inpaintState.isEraser = false;
+  document.getElementById('inpaintEraserBtn').classList.remove('active');
+
+  setupInpaintEvents(canvas);
+}
+
+function resizeInpaintCanvas() {
+  const wrap = document.getElementById('inpaintCanvasWrap');
+  const canvas = document.getElementById('inpaintMaskCanvas');
+  const img = document.getElementById('inpaintBaseImg');
+  const wrapW = wrap.clientWidth;
+  const wrapH = wrap.clientHeight;
+  const imgW = img.naturalWidth || wrapW;
+  const imgH = img.naturalHeight || wrapH;
+  const scale = Math.min(wrapW / imgW, wrapH / imgH, 1);
+  const displayW = Math.round(imgW * scale);
+  const displayH = Math.round(imgH * scale);
+
+  // Save existing mask drawing
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = canvas.width; tmpCanvas.height = canvas.height;
+  if (canvas.width > 0) tmpCanvas.getContext('2d').drawImage(canvas, 0, 0);
+
+  canvas.width = displayW; canvas.height = displayH;
+  canvas.style.width = displayW + 'px'; canvas.style.height = displayH + 'px';
+  canvas.style.left = ((wrapW - displayW) / 2) + 'px';
+  canvas.style.top  = ((wrapH - displayH) / 2) + 'px';
+
+  inpaintState.ctx = canvas.getContext('2d');
+  // Restore previous mask if dimensions match
+  if (tmpCanvas.width > 0) {
+    inpaintState.ctx.drawImage(tmpCanvas, 0, 0, displayW, displayH);
+  }
+}
+
+function setupInpaintEvents(canvas) {
+  const newCanvas = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+  inpaintState.ctx = newCanvas.getContext('2d');
+  // Restore any existing mask drawing
+  if (canvas.width > 0 && canvas.height > 0) {
+    inpaintState.ctx.drawImage(canvas, 0, 0);
+  }
+
+  const getPos = (e) => {
+    const rect = newCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
+
+  const startPaint = (e) => {
+    e.preventDefault();
+    inpaintState.painting = true;
+    const pos = getPos(e);
+    inpaintState.lastX = pos.x; inpaintState.lastY = pos.y;
+    paintMaskDot(newCanvas, pos.x, pos.y);
+  };
+  const movePaint = (e) => {
+    e.preventDefault();
+    if (!inpaintState.painting) return;
+    const pos = getPos(e);
+    paintMaskLine(newCanvas, inpaintState.lastX, inpaintState.lastY, pos.x, pos.y);
+    inpaintState.lastX = pos.x; inpaintState.lastY = pos.y;
+  };
+  const endPaint = () => { inpaintState.painting = false; };
+
+  newCanvas.addEventListener('mousedown', startPaint);
+  newCanvas.addEventListener('mousemove', movePaint);
+  newCanvas.addEventListener('mouseup', endPaint);
+  newCanvas.addEventListener('mouseleave', endPaint);
+  newCanvas.addEventListener('touchstart', startPaint, {passive:false});
+  newCanvas.addEventListener('touchmove', movePaint, {passive:false});
+  newCanvas.addEventListener('touchend', endPaint);
+}
+
+function paintMaskDot(canvas, x, y) {
+  const ctx = inpaintState.ctx || canvas.getContext('2d');
+  ctx.save();
+  if (inpaintState.isEraser) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(80,140,255,0.85)';
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, inpaintState.brushSize / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function paintMaskLine(canvas, x1, y1, x2, y2) {
+  const ctx = inpaintState.ctx || canvas.getContext('2d');
+  ctx.save();
+  if (inpaintState.isEraser) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = 'rgba(80,140,255,0.85)';
+  }
+  ctx.lineWidth = inpaintState.brushSize;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.restore();
+}
+
+function updateInpaintBrushSize(val) {
+  inpaintState.brushSize = parseInt(val);
+  document.getElementById('inpaintBrushSizeVal').textContent = val;
+}
+
+function toggleInpaintEraser() {
+  inpaintState.isEraser = !inpaintState.isEraser;
+  document.getElementById('inpaintEraserBtn').classList.toggle('active', inpaintState.isEraser);
+}
+
+function clearInpaintMask() {
+  const canvas = document.getElementById('inpaintMaskCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// Build a white-on-black mask blob from the blue overlay canvas
+async function buildMaskBlob(maskCanvas) {
+  const baseImg = document.getElementById('inpaintBaseImg');
+  const naturalW = baseImg.naturalWidth;
+  const naturalH = baseImg.naturalHeight;
+  const out = document.createElement('canvas');
+  out.width = naturalW; out.height = naturalH;
+  const ctx = out.getContext('2d');
+  // Scale the display-size mask canvas up to the image's native resolution
+  const scaled = document.createElement('canvas');
+  scaled.width = naturalW; scaled.height = naturalH;
+  scaled.getContext('2d').drawImage(maskCanvas, 0, 0, naturalW, naturalH);
+  const data = scaled.getContext('2d').getImageData(0, 0, naturalW, naturalH);
+  const outData = ctx.createImageData(naturalW, naturalH);
+  for (let i = 0; i < data.data.length; i += 4) {
+    const v = data.data[i + 3] > 10 ? 255 : 0;
+    outData.data[i] = v; outData.data[i+1] = v; outData.data[i+2] = v; outData.data[i+3] = 255;
+  }
+  ctx.putImageData(outData, 0, 0);
+  return new Promise(res => out.toBlob(res, 'image/png'));
+}
+
+// Build a preview: original image with blue mask overlay composited on top
+async function buildMaskPreviewDataUrl(maskCanvas) {
+  const baseImg = document.getElementById('inpaintBaseImg');
+  const W = baseImg.naturalWidth, H = baseImg.naturalHeight;
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(baseImg, 0, 0, W, H);
+  // Draw the mask overlay (blue tint) scaled to native size
+  ctx.globalAlpha = 0.5;
+  ctx.drawImage(maskCanvas, 0, 0, W, H);
+  ctx.globalAlpha = 1;
+  return out.toDataURL('image/png');
+}
+
+// "Save Mask & Close" — commit mask, show preview in img2img strip, reveal inpaint controls
+async function saveInpaintMaskAndClose() {
+  const canvas = document.getElementById('inpaintMaskCanvas');
+
+  // Check mask is non-empty
+  const ctx = canvas.getContext('2d');
+  const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let hasPixels = false;
+  for (let i = 3; i < d.length; i += 4) { if (d[i] > 10) { hasPixels = true; break; } }
+  if (!hasPixels) {
+    closeInpaintModal();
+    return;
+  }
+
+  // Preserve original image before any masking
+  if (!state.inpaintOrigDataUrl) {
+    state.inpaintOrigDataUrl = state.img2imgDataUrl;
+    state.inpaintOrigFile    = state.img2imgFile;
+  }
+
+  // Build mask blob (white-on-black for ComfyUI)
+  state.inpaintMaskBlob = await buildMaskBlob(canvas);
+
+  // Build preview (original + blue overlay) to show in the strip
+  const previewUrl = await buildMaskPreviewDataUrl(canvas);
+  document.getElementById('img2imgPreview').src = previewUrl;
+
+  closeInpaintModal();
+  updateInpaintControlsVisibility();
+}
+
+function closeInpaintModal() {
+  document.getElementById('inpaintModal').classList.remove('open');
+  document.getElementById('inpaintModalBackdrop').classList.remove('open');
+}
+
+// Clear the active mask and restore the original image preview
+function clearActiveMask() {
+  state.inpaintMaskBlob = null;
+  // Restore original preview
+  if (state.inpaintOrigDataUrl) {
+    document.getElementById('img2imgPreview').src = state.inpaintOrigDataUrl;
+    state.img2imgDataUrl = state.inpaintOrigDataUrl;
+    state.img2imgFile    = state.inpaintOrigFile;
+    state.inpaintOrigDataUrl = null;
+    state.inpaintOrigFile    = null;
+  }
+  // Clear the mask canvas too
+  clearInpaintMask();
+  updateInpaintControlsVisibility();
+}
+
+function updateInpaintControlsVisibility() {
+  const hasMask = !!(state.inpaintEnabled && state.inpaintMaskBlob);
+  const controls = document.getElementById('inpaintControls');
+  if (controls) controls.style.display = hasMask ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────────
+// INPAINT WORKFLOW — hooked into generate()
+// ─────────────────────────────────────────────
+// Patch: if a mask is active, route generate() to generateInpaint()
+// We do this by checking at the top of generate() rather than wrapping.
+// See the DOMContentLoaded block below where we monkey-patch safely.
+
+async function generateInpaint() {
+  if (state.generating) return;
+  if (state.marblesEnabled) {
+    const cost = MARBLE_COSTS[state.resCategory] || 5;
+    if (state.marbles < cost) { alert(`Not enough marbles! Need ${cost}, have ${state.marbles}.`); return; }
+  }
+
+  state.generating = true;
+  const btn = document.getElementById('generateBtn');
+  btn.classList.add('loading');
+  document.getElementById('genBtnText').textContent = 'Inpainting…';
+  showGenOverlay(true);
+  document.getElementById('genOverlayText').textContent = 'Inpainting…';
+  clearProgress();
+
+  try {
+    // Upload original (unmasked) source image
+    const origUrl = state.inpaintOrigDataUrl || state.img2imgDataUrl;
+    const imgBlob = await (await fetch(origUrl)).blob();
+    const imgFile = new File([imgBlob], 'inpaint_src.png', {type:'image/png'});
+    const imgFd = new FormData(); imgFd.append('image', imgFile, imgFile.name);
+    const imgUp = await fetch(`${state.comfyUrl}/upload/image`, {method:'POST', body:imgFd});
+    if (!imgUp.ok) throw new Error('Image upload failed');
+    const {name: imgName} = await imgUp.json();
+
+    // Upload mask
+    const maskFile = new File([state.inpaintMaskBlob], 'inpaint_mask.png', {type:'image/png'});
+    const maskFd = new FormData(); maskFd.append('image', maskFile, maskFile.name);
+    const maskUp = await fetch(`${state.comfyUrl}/upload/image`, {method:'POST', body:maskFd});
+    if (!maskUp.ok) throw new Error('Mask upload failed');
+    const {name: maskName} = await maskUp.json();
+
+    const denoise   = parseFloat(document.getElementById('inpaintDenoiseNum')?.value) || 0.85;
+    const maskBlur  = parseInt(document.getElementById('inpaintMaskBlurNum')?.value) || 4;
+    const maskMode  = document.getElementById('inpaintMaskMode')?.value || 'masked';
+    const positive  = buildPositivePrompt();
+    const negative  = buildNegativePrompt();
+    const vaeRaw    = document.getElementById('vaeSelect').value;
+    const sampler   = document.getElementById('samplerName').value;
+    const scheduler = document.getElementById('scheduler').value;
+    const steps     = parseInt(document.getElementById('stepsNum').value) || 20;
+    const cfg       = parseFloat(document.getElementById('cfgNum').value) || 7;
+    const te        = document.getElementById('teSelect')?.value ?? 'none';
+    const teType    = document.getElementById('teType')?.value ?? 'stable_diffusion';
+
+    let seed = parseInt(document.getElementById('seedInput').value);
+    if (seed === -1 || !state.seedLocked) {
+      seed = Math.floor(Math.random() * 2**32);
+      if (!state.seedLocked) document.getElementById('seedInput').value = seed;
+    }
+
+    const nodes = {};
+    let nid = 1; const id = () => String(nid++);
+    let modelSrc, clipSrc, vaeSrc;
+
+    // Load model (same as main workflow)
+    if (state.modelType === 'checkpoint') {
+      const ckptId = id();
+      nodes[ckptId] = { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: document.getElementById('checkpointSelect').value } };
+      modelSrc = [ckptId, 0]; clipSrc = [ckptId, 1]; vaeSrc = [ckptId, 2];
+    } else {
+      const unetId = id();
+      nodes[unetId] = { class_type: 'UNETLoader', inputs: { unet_name: document.getElementById('diffusionSelect').value, weight_dtype: 'default' } };
+      modelSrc = [unetId, 0]; vaeSrc = null;
+      if (te && te !== 'none') {
+        const clipId = id();
+        nodes[clipId] = { class_type: 'CLIPLoader', inputs: { clip_name: te, type: teType } };
+        clipSrc = [clipId, 0];
+      }
+    }
+
+    if (vaeRaw && !vaeRaw.startsWith('Automatic')) {
+      const vaeId = id();
+      nodes[vaeId] = { class_type: 'VAELoader', inputs: { vae_name: vaeRaw } };
+      vaeSrc = [vaeId, 0];
+    }
+
+    if (state.vPrediction) {
+      const vpId = id();
+      nodes[vpId] = { class_type: 'ModelSamplingDiscrete', inputs: { model: modelSrc, sampling: 'v_prediction', zsnr: true } };
+      modelSrc = [vpId, 0];
+    }
+    if (state.rescaleCFGEnabled) {
+      const rcId = id();
+      nodes[rcId] = { class_type: 'RescaleCFG', inputs: { model: modelSrc, multiplier: parseFloat(document.getElementById('rescaleCFGNum').value) } };
+      modelSrc = [rcId, 0];
+    }
+    getActiveLoRAs().forEach(lora => {
+      const loraId = id();
+      nodes[loraId] = { class_type: 'LoraLoader', inputs: { model: modelSrc, clip: clipSrc, lora_name: lora.name, strength_model: lora.strength, strength_clip: lora.strength } };
+      modelSrc = [loraId, 0]; clipSrc = [loraId, 1];
+    });
+
+    // Load full image (used for context AND as latent base)
+    const loadImgId = id();
+    nodes[loadImgId] = { class_type: 'LoadImage', inputs: { image: imgName, upload: 'image' } };
+
+    // Load mask image → convert to mask tensor
+    const loadMaskId = id();
+    nodes[loadMaskId] = { class_type: 'LoadImage', inputs: { image: maskName, upload: 'image' } };
+    const imgToMaskId = id();
+    nodes[imgToMaskId] = { class_type: 'ImageToMask', inputs: { image: [loadMaskId, 0], channel: 'red' } };
+
+    // Optional mask blur (GrowMask expands + softens edges)
+    let maskSrc = [imgToMaskId, 0];
+    if (maskBlur > 0) {
+      const growId = id();
+      nodes[growId] = { class_type: 'GrowMask', inputs: { mask: maskSrc, expand: maskBlur, tapered_corners: true } };
+      maskSrc = [growId, 0];
+    }
+
+    // Invert if user wants to inpaint the unmasked area
+    if (maskMode === 'unmasked') {
+      const invId = id();
+      nodes[invId] = { class_type: 'InvertMask', inputs: { mask: maskSrc } };
+      maskSrc = [invId, 0];
+    }
+
+    // Encode WHOLE image into latent — this is the key: full image context is always preserved
+    const vaeEncId = id();
+    nodes[vaeEncId] = { class_type: 'VAEEncode', inputs: { pixels: [loadImgId, 0], vae: vaeSrc || [Object.keys(nodes)[0], 2] } };
+
+    // Apply the mask as a latent noise mask — only the masked region gets diffused
+    const setMaskId = id();
+    nodes[setMaskId] = { class_type: 'SetLatentNoiseMask', inputs: { samples: [vaeEncId, 0], mask: maskSrc } };
+
+    // Text encode
+    const posId = id();
+    nodes[posId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: positive } };
+    const negId = id();
+    nodes[negId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: negative } };
+
+    // KSampler — operates on full latent but only noises the masked region
+    const ksId = id();
+    nodes[ksId] = {
+      class_type: 'KSampler',
+      inputs: {
+        model: modelSrc, positive: [posId, 0], negative: [negId, 0],
+        latent_image: [setMaskId, 0],
+        seed, steps, cfg, sampler_name: sampler, scheduler, denoise,
+      }
+    };
+
+    // Decode & save
+    const decId = id();
+    nodes[decId] = { class_type: 'VAEDecode', inputs: { samples: [ksId, 0], vae: vaeSrc || [Object.keys(nodes)[0], 2] } };
+    const saveId = id();
+    nodes[saveId] = { class_type: 'SaveImage', inputs: { images: [decId, 0], filename_prefix: 'ComfyStudio_Inpaint' } };
+
+    state.lastGenMeta = captureGenMeta(seed);
+
+    const res = await fetch(`${state.comfyUrl}/prompt`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ prompt: nodes, client_id: state.clientId })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const {prompt_id} = await res.json();
+    state.lastPromptId = prompt_id;
+    await pollForImages(prompt_id, 1);
+    deductMarbles(MARBLE_COSTS[state.resCategory] || 5);
+  } catch(e) {
+    showGenOverlay(false);
+    resetBtn();
+    alert('Inpaint failed: ' + e.message);
+  }
+}
+
+// ─────────────────────────────────────────────
+// RESTORE INPAINT SETTING ON LOAD
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Inpaint toggle restore
+  const savedInpaint = localStorage.getItem('comfyStudioInpaint') === 'true';
+  if (savedInpaint) {
+    state.inpaintEnabled = true;
+    const tog = document.getElementById('inpaintToggle');
+    if (tog) tog.checked = true;
+  }
+});
+
+// Show/hide inpaint button when img2img state changes
+function updateInpaintBtnVisibility() {
+  const btn = document.getElementById('inpaintLaunchBtn');
+  if (btn) btn.style.display = (state.inpaintEnabled && state.img2imgDataUrl) ? 'block' : 'none';
+}
