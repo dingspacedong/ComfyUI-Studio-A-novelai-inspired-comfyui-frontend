@@ -46,6 +46,14 @@ const state = {
   rescaleCFGEnabled: false,
   rescaleCFGMultiplier: 0.7,
   notifSoundEnabled: false,
+  // Step preview is always enabled — no longer a user toggle
+  stepPreviewEnabled: true,
+
+  // Output paths
+  outputPath: '',
+  inpaintOutputPath: '',
+  autoSaveEnabled: false,
+  outputFileCounter: null, // loaded lazily from localStorage
 
   // Marbles
   marblesEnabled: false,
@@ -61,8 +69,6 @@ const state = {
   imageMode: null, // null | 'upscale' | 'enhance'
   enhanceModelType: 'checkpoint', // 'checkpoint' | 'diffusion'
 
-  // Token count
-  tokenCountVisible: true,
   modifierHighlightEnabled: true,
 
   // Save preferences — keys match save-chk IDs
@@ -95,6 +101,15 @@ const state = {
   // Batch tracking
   batchTotal: 1,
   batchCurrent: 0,
+
+  // Focused Inpainting — transient params set before pollForImages, consumed in displayImage
+  _focusedInpaintParams: null,
+
+  // Inpaint state
+  inpaintEnabled: false,
+  inpaintMaskBlob: null,
+  inpaintOrigDataUrl: null,
+  inpaintOrigFile: null,
 };
 
 // ─────────────────────────────────────────────
@@ -102,24 +117,24 @@ const state = {
 // ─────────────────────────────────────────────
 const resTable = {
   normal: {
-    portrait:  { sdxl:[832,1216],  novelai:[832,1216],  anima:[768,1152]  },
-    landscape: { sdxl:[1216,832],  novelai:[1216,832],  anima:[1152,768]  },
+    portrait:  { sdxl:[832,1216],  novelai:[832,1216],  anima:[832,1216]  },
+    landscape: { sdxl:[1216,832],  novelai:[1216,832],  anima:[1216,832]  },
     square:    { sdxl:[1024,1024], novelai:[1024,1024], anima:[1024,1024] },
   },
   large: {
-    portrait:  { sdxl:[896,1536],  novelai:[896,1536],  anima:[832,1344]  },
-    landscape: { sdxl:[1536,896],  novelai:[1536,896],  anima:[1344,832]  },
-    square:    { sdxl:[1344,1344], novelai:[1344,1344], anima:[1152,1152] },
+    portrait:  { sdxl:[896,1536],  novelai:[1024,1536],  anima:[1024,1536]  },
+    landscape: { sdxl:[1536,896],  novelai:[1536,1024],  anima:[1536,1024]  },
+    square:    { sdxl:[1344,1344], novelai:[1472,1472], anima:[1152,1152] },
   },
   wallpaper: {
-    portrait:  { sdxl:[768,1344],  novelai:[768,1344],  anima:[720,1280]  },
-    landscape: { sdxl:[1344,768],  novelai:[1344,768],  anima:[1280,720]  },
-    square:    { sdxl:[1024,1024], novelai:[1024,1024], anima:[1024,1024] },
+    portrait:  { sdxl:[768,1344],  novelai:[768,1344],  anima:[768,1344]  },
+    landscape: { sdxl:[1344,768],  novelai:[1344,768],  anima:[1344,768]  },
+    square:    { sdxl:[1024,1024], novelai:[1536,1536], anima:[1536,1536] },
   },
   small: {
     portrait:  { sdxl:[512,768],   novelai:[512,768],   anima:[512,768]   },
     landscape: { sdxl:[768,512],   novelai:[768,512],   anima:[768,512]   },
-    square:    { sdxl:[512,512],   novelai:[512,512],   anima:[512,512]   },
+    square:    { sdxl:[512,512],   novelai:[640,640],   anima:[640,640]   },
   },
 };
 
@@ -165,6 +180,16 @@ document.addEventListener('DOMContentLoaded', () => {
   setupBaseImgZone();
   updateResFromTable();
 
+  // Keep highlight layer width in sync when textarea is resized by drag
+  const posTA = document.getElementById('positivePrompt');
+  const negTA = document.getElementById('negativePrompt');
+  if (posTA && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => updatePromptHighlight('positive')).observe(posTA);
+  }
+  if (negTA && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => updatePromptHighlight('negative')).observe(negTA);
+  }
+
   const savedSession = loadSessionStart();
   loadModels().then(() => {
     if (savedSession) loadSessionModels(savedSession);
@@ -173,33 +198,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   connectWS();
 
-  // Restore token count visibility
-  const savedTokenCount = localStorage.getItem('comfyStudioTokenCount');
-  if (savedTokenCount === 'false') {
-    state.tokenCountVisible = false;
-    const bar = document.getElementById('tokenCountBar');
-    if (bar) bar.style.display = 'none';
-    const tog = document.getElementById('tokenCountToggle');
-    if (tog) tog.checked = false;
-    const settingsTog = document.getElementById('tokenCountSettingsToggle');
-    if (settingsTog) settingsTog.checked = false;
-  }
-
-  updateTokenCount();
-
   document.getElementById('qualityTagsEnabled').addEventListener('change', e => {
     state.qualityTagsEnabled = e.target.checked;
   });
   document.getElementById('qualityTagsText').addEventListener('input', e => {
     state.qualityTagsText = e.target.value;
-    updateTokenCount();
   });
   document.getElementById('negQualityTagsEnabled').addEventListener('change', e => {
     state.negQualityTagsEnabled = e.target.checked;
   });
   document.getElementById('negQualityTagsText').addEventListener('input', e => {
     state.negQualityTagsText = e.target.value;
-    updateTokenCount();
   });
 
   // Restore marbles
@@ -220,6 +229,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedNotif === 'true') {
     state.notifSoundEnabled = true;
     document.getElementById('notifSoundToggle').checked = true;
+  }
+
+  // Step preview is always enabled — no restore needed
+
+  // Restore output path settings
+  const savedOutputPaths = localStorage.getItem('comfyStudioOutputPaths');
+  if (savedOutputPaths) {
+    try {
+      const op = JSON.parse(savedOutputPaths);
+      state.outputPath        = op.outputPath        || '';
+      state.inpaintOutputPath = op.inpaintOutputPath || '';
+      state.autoSaveEnabled   = !!op.autoSave;
+      const opInput   = document.getElementById('outputPathInput');
+      const ipInput   = document.getElementById('inpaintOutputPathInput');
+      const asTog     = document.getElementById('autoSaveToggle');
+      if (opInput) opInput.value   = state.outputPath;
+      if (ipInput) ipInput.value   = state.inpaintOutputPath;
+      if (asTog)   asTog.checked   = state.autoSaveEnabled;
+    } catch(e) {}
   }
 
   // Restore modifier highlight setting
@@ -244,11 +272,46 @@ document.addEventListener('DOMContentLoaded', () => {
       if (epTog) epTog.checked = state.acEscapeParens;
       const usTog = document.getElementById('acUnderscoreToggle');
       if (usTog) usTog.checked = state.acReplaceUnderscores;
+      // Restore the last-used autocomplete source after the folder scan populates the <select>
+      if (ac.source && ac.source !== 'none') {
+        state._pendingAcSource = ac.source;
+      }
     } catch(e) {}
   }
 
   // Sync theme color pickers to current theme
   syncThemeColorPickers();
+
+  // Load wildcards
+  loadWildcards();
+
+  // Restore save metadata setting (default true)
+  const savedSaveMeta = localStorage.getItem('comfyStudioSaveMeta');
+  if (savedSaveMeta === 'false') {
+    state.saveMetadataEnabled = false;
+    const tog = document.getElementById('saveMetadataToggle');
+    if (tog) tog.checked = false;
+  }
+
+  // Restore notes feature
+  const savedNotes = localStorage.getItem('comfyStudioNotes');
+  if (savedNotes === 'true') {
+    const tog = document.getElementById('notesEnabledToggle');
+    if (tog) { tog.checked = true; toggleNotesFeature(true); }
+  }
+  // Restore notes content
+  const notesContent = localStorage.getItem('comfyStudioNotes_content');
+  if (notesContent) {
+    const ta = document.getElementById('notesTextarea');
+    if (ta) ta.value = notesContent;
+  }
+
+  // Restore hide characters
+  const savedHideChars = localStorage.getItem('comfyStudioHideChars');
+  if (savedHideChars === 'true') {
+    const tog = document.getElementById('hideCharactersToggle');
+    if (tog) { tog.checked = true; toggleHideCharacters(true); }
+  }
 });
 
 // ─────────────────────────────────────────────
@@ -283,31 +346,157 @@ function reconnect() {
 }
 
 function onWSMessage(evt) {
+  // ComfyUI sends binary blobs for latent previews.
+  // Format: [4 bytes event-type uint32 LE] [4 bytes image-format uint32 LE] [JPEG bytes...]
+  // Some versions use only a 4-byte header. We detect the JPEG magic (0xFF 0xD8) to find the
+  // true start of image data, making this robust across ComfyUI versions.
+  if (evt.data instanceof Blob) {
+    if (!state.stepPreviewEnabled) return;
+    evt.data.arrayBuffer().then(buf => {
+      const arr = new Uint8Array(buf);
+
+      // Find the JPEG magic bytes (0xFF 0xD8) in the first 16 bytes
+      let imgStart = -1;
+      for (let i = 0; i <= Math.min(16, arr.length - 2); i++) {
+        if (arr[i] === 0xFF && arr[i + 1] === 0xD8) { imgStart = i; break; }
+      }
+      if (imgStart === -1) return; // not a JPEG preview — skip
+
+      const imageBlob = new Blob([arr.subarray(imgStart)], { type: 'image/jpeg' });
+      const url = URL.createObjectURL(imageBlob);
+      const previewImg = document.getElementById('stepPreviewImg');
+      if (previewImg) {
+        if (previewImg.src && previewImg.src.startsWith('blob:')) URL.revokeObjectURL(previewImg.src);
+        previewImg.src = url;
+        previewImg.style.display = 'block';
+        const placeholder = document.getElementById('imgPlaceholder');
+        if (placeholder) placeholder.style.display = 'none';
+        const overlay = document.getElementById('genOverlay');
+        if (overlay) overlay.classList.add('has-preview');
+      }
+    }).catch(() => {}); // ignore parse errors on non-image binary messages
+    return;
+  }
+
   let data;
   try { data = JSON.parse(evt.data); } catch(e) { return; }
+
   if (data.type === 'progress') {
     const { value, max } = data.data;
     setProgress(value, max);
     document.getElementById('genOverlayText').textContent = `Step ${value} / ${max}`;
   }
+
   if (data.type === 'executing') {
     if (data.data.node === null && data.data.prompt_id === state.lastPromptId) {
       fetchLatestImage();
     }
   }
+
+  // ComfyUI fires execution_error when a node throws during execution
+  if (data.type === 'execution_error') {
+    if (data.data?.prompt_id === state.lastPromptId || !state.lastPromptId) {
+      const nodeType  = data.data?.exception_type  || '';
+      const nodeMsg   = data.data?.exception_message || 'Unknown error';
+      const nodeClass = data.data?.node_type        || '';
+      showToast('error', 'Generation Error',
+        (nodeClass ? `[${nodeClass}] ` : '') + nodeMsg, 0);
+      showGenOverlay(false);
+      clearProgress();
+      clearStepPreview();
+      removePendingHistoryItems();
+      resetBtn();
+    }
+  }
+
+  // ComfyUI fires execution_interrupted when the user or server interrupts
+  if (data.type === 'execution_interrupted') {
+    if (data.data?.prompt_id === state.lastPromptId || !state.lastPromptId) {
+      showGenOverlay(false);
+      clearProgress();
+      clearStepPreview();
+      removePendingHistoryItems();
+      resetBtn();
+      showToast('info', 'Interrupted', 'Generation was stopped.', 3000);
+    }
+  }
 }
+
+// ─────────────────────────────────────────────
+// TOAST NOTIFICATION SYSTEM
+// ─────────────────────────────────────────────
+// showToast(type, title, message, duration)
+// type: 'error' | 'success' | 'info'
+// duration: ms to auto-dismiss (0 = manual close only)
+function showToast(type, title, message, duration = 6000) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  // Don't use ✕ for error icon since the close button already shows ✕
+  const icons = { error: '⚠', success: '✓', info: 'ℹ' };
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || 'ℹ'}</span>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      ${message ? `<div class="toast-msg">${message}</div>` : ''}
+    </div>
+    <button class="toast-close" onclick="dismissToast(this.closest('.toast'))">✕</button>
+  `;
+
+  container.appendChild(toast);
+
+  if (duration > 0) {
+    setTimeout(() => dismissToast(toast), duration);
+  }
+  return toast;
+}
+
+function dismissToast(toast) {
+  if (!toast || toast.classList.contains('removing')) return;
+  toast.classList.add('removing');
+  toast.addEventListener('animationend', () => toast.remove(), { once: true });
+}
+
+function clearStepPreview() {
+  const previewImg = document.getElementById('stepPreviewImg');
+  if (!previewImg) return;
+  if (previewImg.src && previewImg.src.startsWith('blob:')) URL.revokeObjectURL(previewImg.src);
+  previewImg.src = '';
+  previewImg.style.display = 'none';
+  // Restore full overlay opacity
+  const overlay = document.getElementById('genOverlay');
+  if (overlay) overlay.classList.remove('has-preview');
+}
+
 
 // ─────────────────────────────────────────────
 // PROGRESS
 // ─────────────────────────────────────────────
 function setProgress(value, max) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  // Panel-footer bar (existing)
   document.getElementById('progressFill').style.width = pct + '%';
   document.getElementById('progressText').textContent = `${value}/${max}`;
+  // Image-area overlay bar
+  const gpo = document.getElementById('genProgressOverlay');
+  if (gpo) gpo.style.display = 'flex';
+  const gpf = document.getElementById('genProgressFill');
+  if (gpf) gpf.style.width = pct + '%';
+  const gpt = document.getElementById('genProgressText');
+  if (gpt) gpt.textContent = `${value}/${max}`;
 }
 function clearProgress() {
   document.getElementById('progressFill').style.width = '0%';
   document.getElementById('progressText').textContent = '';
+  const gpo = document.getElementById('genProgressOverlay');
+  if (gpo) gpo.style.display = 'none';
+  const gpf = document.getElementById('genProgressFill');
+  if (gpf) gpf.style.width = '0%';
+  const gpt = document.getElementById('genProgressText');
+  if (gpt) gpt.textContent = '';
 }
 
 // ─────────────────────────────────────────────
@@ -400,13 +589,15 @@ function switchModelType(type, btn) {
 
 function switchEnhanceModelType(type, btn) {
   state.enhanceModelType = type;
-  // Update only buttons in the enhance panel segmented control
-  const enhanceAdvBody = btn.closest('.enhance-advanced-body');
-  if (enhanceAdvBody) {
-    enhanceAdvBody.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  // Update only the enhance segmented buttons (not main model buttons)
+  const modelCard = btn.closest('.enhance-model-card');
+  if (modelCard) {
+    modelCard.querySelectorAll('.enh-seg').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
   }
+  const ckptRow = document.getElementById('enhanceCheckpointRow');
   const diffRow = document.getElementById('enhanceDiffusionRow');
+  if (ckptRow) ckptRow.classList.toggle('hidden', type !== 'checkpoint');
   if (diffRow) diffRow.classList.toggle('hidden', type !== 'diffusion');
 }
 
@@ -418,78 +609,6 @@ function switchPromptTab(tab, btn) {
   btn.classList.add('active');
   document.querySelectorAll('.prompt-pane').forEach(p => p.classList.remove('active-pane'));
   document.getElementById('prompt' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active-pane');
-  updateTokenCount();
-}
-
-// ─────────────────────────────────────────────
-// TOKEN COUNT — cumulative from ALL prompts + character prompts
-// ─────────────────────────────────────────────
-function toggleTokenCount(enabled) {
-  state.tokenCountVisible = enabled;
-  const bar = document.getElementById('tokenCountBar');
-  if (bar) bar.style.display = enabled ? 'flex' : 'none';
-  // Keep settings toggles in sync
-  const mainTog = document.getElementById('tokenCountToggle');
-  if (mainTog) mainTog.checked = enabled;
-  const settingsTog = document.getElementById('tokenCountSettingsToggle');
-  if (settingsTog) settingsTog.checked = enabled;
-  localStorage.setItem('comfyStudioTokenCount', enabled);
-}
-
-function countTokens(text) {
-  if (!text || !text.trim()) return 0;
-  // Better approximation: split on commas and whitespace, count non-empty tokens
-  // Each word/subword counts roughly as a token; parenthetical weights don't add tokens
-  const clean = text.replace(/\(([^)]*):[\d.]+\)/g, '$1'); // strip weights
-  return clean.trim().split(/[\s,]+/).filter(t => t.length > 0).length;
-}
-
-function updateTokenCount() {
-  if (!state.tokenCountVisible) return;
-
-  const posText = document.getElementById('positivePrompt')?.value || '';
-  const negText = document.getElementById('negativePrompt')?.value || '';
-  const qualText = (state.qualityTagsEnabled && state.qualityTagsText) ? state.qualityTagsText : '';
-  const negQualText = (state.negQualityTagsEnabled && state.negQualityTagsText) ? state.negQualityTagsText : '';
-
-  // Count only the active prompt tab for display, but show total with chars
-  const activeIsPositive = document.querySelector('.ptab.active')?.textContent?.includes('Positive');
-  const activeText = activeIsPositive
-    ? ((qualText ? qualText + ', ' : '') + posText)
-    : ((negQualText ? negQualText + ', ' : '') + negText);
-
-  // Add character prompt tokens to positive
-  let charTokens = 0;
-  if (activeIsPositive) {
-    state.characters.forEach(ch => {
-      if (!ch.enabled) return;
-      const item = document.querySelector(`.char-item[data-charid="${ch.id}"]`);
-      if (item) {
-        charTokens += countTokens(item.querySelector('.char-ta')?.value || '');
-      }
-    });
-  }
-
-  const total = countTokens(activeText) + charTokens;
-  const chunks = Math.max(1, Math.ceil(total / 75));
-  const budget = chunks * 75;
-
-  const countEl = document.getElementById('tokenCount');
-  const totalEl = document.getElementById('tokenTotal');
-  const warnEl  = document.getElementById('tokenWarn');
-
-  if (countEl) countEl.textContent = total;
-  if (totalEl) totalEl.textContent = budget;
-  if (warnEl) {
-    if (total > 75) {
-      warnEl.textContent = `(${chunks} chunks)`;
-    } else {
-      warnEl.textContent = '';
-    }
-  }
-
-  // Color the count red when over budget
-  if (countEl) countEl.style.color = total > budget ? 'var(--negative)' : '';
 }
 
 // ─────────────────────────────────────────────
@@ -501,15 +620,17 @@ function toggleModifierHighlight(enabled) {
   const settingsTog = document.getElementById('modifierHighlightToggle');
   if (settingsTog) settingsTog.checked = enabled;
   localStorage.setItem('comfyStudioModHighlight', enabled);
-  // Clear or re-render highlights
+  // Clear or re-render highlights — main prompts
   ['positive', 'negative'].forEach(side => {
     const layer = document.getElementById(side === 'positive' ? 'highlightLayerPositive' : 'highlightLayerNegative');
     if (!layer) return;
-    if (!enabled) {
-      layer.innerHTML = '';
-    } else {
-      updatePromptHighlight(side);
-    }
+    if (!enabled) { layer.innerHTML = ''; } else { updatePromptHighlight(side); }
+  });
+  // Clear or re-render enhance prompt highlights
+  ['pos', 'neg'].forEach(which => {
+    const layer = document.getElementById(which === 'pos' ? 'highlightLayerEnhancePos' : 'highlightLayerEnhanceNeg');
+    if (!layer) return;
+    if (!enabled) { layer.innerHTML = ''; } else { updateEnhanceHighlight(which); }
   });
 }
 
@@ -524,58 +645,87 @@ function updatePromptHighlight(side) {
   }
 
   const text = ta.value;
-  // Replace (tag:weight) patterns with highlighted spans; escape everything else
   const escaped = escapeHTMLPreserveStructure(text);
   layer.innerHTML = escaped;
-  // Sync scroll and font metrics so overlay aligns with textarea
-  layer.style.fontSize = getComputedStyle(ta).fontSize;
-  layer.style.lineHeight = getComputedStyle(ta).lineHeight;
-  layer.style.fontFamily = getComputedStyle(ta).fontFamily;
+  // Mirror exact computed style so newlines render at the same height
+  const cs = getComputedStyle(ta);
+  layer.style.fontSize = cs.fontSize;
+  layer.style.lineHeight = cs.lineHeight;
+  layer.style.fontFamily = cs.fontFamily;
+  layer.style.letterSpacing = cs.letterSpacing;
+  layer.style.wordSpacing = cs.wordSpacing;
+  layer.style.tabSize = cs.tabSize;
+  // Mirror width to account for scrollbar space
+  layer.style.width = ta.clientWidth + 'px';
   syncHighlightScroll(side);
 }
  
 function escapeHTMLPreserveStructure(text) {
-  // We build the highlighted HTML carefully
+  // Build highlighted HTML for the overlay layer.
+  // Rules:
+  //   \( and \) are escaped parens (e.g. "loona \(helluva boss\)") — plain text, never group boundaries.
+  //   Unescaped ( ... :number ) patterns are modifier groups — wrapped in a highlight span.
+  //   Everything else is HTML-escaped plain text.
   let result = '';
   let i = 0;
+
+  function htmlEscapeChar(ch) {
+    if (ch === '&') return '&amp;';
+    if (ch === '<') return '&lt;';
+    if (ch === '>') return '&gt;';
+    return ch;
+  }
+
   while (i < text.length) {
-    // Look for ( ... : number )
+    // Escaped paren — \( or \) — emit both chars as plain text, never a group boundary
+    if (text[i] === '\\' && i + 1 < text.length && (text[i+1] === '(' || text[i+1] === ')')) {
+      result += htmlEscapeChar(text[i]) + htmlEscapeChar(text[i+1]);
+      i += 2;
+      continue;
+    }
+
+    // Unescaped open paren — try to match a modifier group (content:number)
     if (text[i] === '(') {
-      // find matching close paren
       let depth = 1;
       let j = i + 1;
       while (j < text.length && depth > 0) {
+        // Skip escape sequences so \( \) don't affect depth counting
+        if (text[j] === '\\' && j + 1 < text.length && (text[j+1] === '(' || text[j+1] === ')')) {
+          j += 2;
+          continue;
+        }
         if (text[j] === '(') depth++;
         else if (text[j] === ')') depth--;
         j++;
       }
+
       if (depth === 0) {
         const inner = text.slice(i + 1, j - 1);
-        // Check if ends with :number
         const m = inner.match(/^([\s\S]*):(\s*[\d.]+\s*)$/);
         if (m) {
           const weight = parseFloat(m[2]);
-          let cls = '';
-          if (weight > 1) cls = 'mod-high';
-          else if (weight === 1) cls = 'mod-mid';
-          else cls = 'mod-low';
-          result += `<span class="${cls}">${escapeHTML('(' + inner + ')')}</span>`;
+          const cls = weight > 1 ? 'mod-high' : (weight === 1 ? 'mod-mid' : 'mod-low');
+          const groupText = '(' + inner + ')';
+          result += `<span class="${cls}">${groupText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
           i = j;
           continue;
         }
       }
+      // Not a modifier group — emit the ( as plain text and advance one char only
+      result += '(';
+      i++;
+      continue;
     }
+
     // Newline
     if (text[i] === '\n') { result += '\n'; i++; continue; }
-    // Normal char - escape HTML
-    const ch = text[i];
-    if (ch === '&') result += '&amp;';
-    else if (ch === '<') result += '&lt;';
-    else if (ch === '>') result += '&gt;';
-    else result += ch;
+
+    // All other chars — HTML escape
+    result += htmlEscapeChar(text[i]);
     i++;
   }
-  // The layer needs a trailing space/newline to match textarea height
+
+  // Trailing space so the layer height stays in sync with the textarea
   return result + ' ';
 }
  
@@ -591,8 +741,14 @@ function syncHighlightScroll(side) {
   layer.scrollLeft = ta.scrollLeft;
 }
 
-// ─────────────────────────────────────────────
-// COLLAPSIBLE CARDS
+function syncCharHighlightScroll(ta) {
+  const wrap = ta.closest('.char-prompt-wrap');
+  if (!wrap) return;
+  const layer = wrap.querySelector('.char-highlight-layer');
+  if (!layer) return;
+  layer.scrollTop  = ta.scrollTop;
+  layer.scrollLeft = ta.scrollLeft;
+}
 // ─────────────────────────────────────────────
 function setupCollapsibleCards() {
   const saved = JSON.parse(localStorage.getItem('comfyCollapseState') || '{}');
@@ -641,7 +797,6 @@ function addCharacter() {
   ta.addEventListener('input', () => {
     const ch = state.characters.find(c => c.id === id);
     if (ch) ch.prompt = ta.value;
-    updateTokenCount();
     updateCharHighlight(ta);
   });
   ta.addEventListener('scroll', () => syncCharHighlightScroll(ta));
@@ -663,19 +818,13 @@ function updateCharHighlight(ta) {
   if (!layer) return;
   if (!state.modifierHighlightEnabled) { layer.innerHTML = ''; return; }
   layer.innerHTML = escapeHTMLPreserveStructure(ta.value);
-  layer.style.fontSize    = getComputedStyle(ta).fontSize;
-  layer.style.lineHeight  = getComputedStyle(ta).lineHeight;
-  layer.style.fontFamily  = getComputedStyle(ta).fontFamily;
+  const cs = getComputedStyle(ta);
+  layer.style.fontSize    = cs.fontSize;
+  layer.style.lineHeight  = cs.lineHeight;
+  layer.style.fontFamily  = cs.fontFamily;
+  layer.style.letterSpacing = cs.letterSpacing;
+  layer.style.width = ta.clientWidth + 'px';
   syncCharHighlightScroll(ta);
-}
-
-function syncCharHighlightScroll(ta) {
-  const wrap = ta.closest('.char-prompt-wrap');
-  if (!wrap) return;
-  const layer = wrap.querySelector('.char-highlight-layer');
-  if (!layer) return;
-  layer.scrollTop  = ta.scrollTop;
-  layer.scrollLeft = ta.scrollLeft;
 }
 
 let _charAcHandlers = [];
@@ -720,7 +869,6 @@ function setupCharAutocomplete(ta) {
     const end   = ta.selectionStart;
     ta.value = ta.value.slice(0, start) + tag + ta.value.slice(end);
     ta.selectionStart = ta.selectionEnd = start + tag.length;
-    updateTokenCount();
     updateCharHighlight(ta);
   }
 
@@ -790,6 +938,7 @@ function buildPositivePrompt() {
     positive = qtags + ', ' + positive;
   }
 
+  // Replace character keywords
   state.characters.forEach(ch => {
     if (!ch.enabled) return;
     const item = document.querySelector(`.char-item[data-charid="${ch.id}"]`);
@@ -800,6 +949,10 @@ function buildPositivePrompt() {
       positive = positive.replaceAll(kw, prompt);
     }
   });
+
+  // Resolve {{wc:name}} wildcard keywords — each replaced with a single random tag
+  positive = resolveWildcards(positive);
+
   return positive;
 }
 
@@ -811,6 +964,8 @@ function buildNegativePrompt() {
     const ntags = state.negQualityTagsText.trim().replace(/,\s*$/, '');
     negative = ntags + ', ' + negative;
   }
+  // Resolve wildcards in negative prompt too
+  negative = resolveWildcards(negative);
   return negative;
 }
 
@@ -832,22 +987,37 @@ function addLora() {
 }
 
 function setupLoraSearch(item, loras) {
-  const input    = item.querySelector('.lora-search-input');
-  const dropdown = item.querySelector('.lora-search-dropdown');
-  const hidden   = item.querySelector('.lora-sel');
+  // Clone inputs to remove any previously attached listeners (prevents stale-closure duplicates
+  // when loadModels calls setupLoraSearch again with a refreshed list).
+  const oldInput    = item.querySelector('.lora-search-input');
+  const oldDropdown = item.querySelector('.lora-search-dropdown');
+  const hidden      = item.querySelector('.lora-sel');
 
-  // Pre-select first lora if any
+  const input    = oldInput.cloneNode(true);
+  const dropdown = oldDropdown.cloneNode(false); // shallow — items are re-built each time
+  oldInput.parentNode.replaceChild(input, oldInput);
+  oldDropdown.parentNode.replaceChild(dropdown, oldDropdown);
+
+  // Pre-select first lora if nothing is selected yet
   if (loras.length > 0 && !hidden.value) {
-    hidden.value  = loras[0];
-    input.value   = loras[0];
+    hidden.value = loras[0];
+    input.value  = loras[0];
   }
 
-  function showDropdown(filter) {
-    const q = filter.toLowerCase();
-    const matches = q
-      ? loras.filter(l => l.toLowerCase().includes(q)).slice(0, 12)
-      : loras.slice(0, 12);
+  function buildDropdown(filter) {
+    const q = filter.trim().toLowerCase();
+    let matches;
+    if (!q) {
+      matches = loras.slice(0, 16);
+    } else {
+      // Score: starts-with gets priority, then contains; alphabetical within each tier
+      const startsWith = loras.filter(l => l.toLowerCase().startsWith(q));
+      const contains   = loras.filter(l => !l.toLowerCase().startsWith(q) && l.toLowerCase().includes(q));
+      matches = [...startsWith, ...contains].slice(0, 16);
+    }
+
     if (!matches.length) { dropdown.style.display = 'none'; return; }
+
     dropdown.innerHTML = '';
     matches.forEach((name, i) => {
       const row = document.createElement('div');
@@ -868,10 +1038,10 @@ function setupLoraSearch(item, loras) {
     return dropdown.querySelector('.lora-dd-item.active');
   }
 
-  input.addEventListener('focus', () => showDropdown(input.value));
+  input.addEventListener('focus', () => buildDropdown(input.value));
   input.addEventListener('input', () => {
     hidden.value = '';
-    showDropdown(input.value);
+    buildDropdown(input.value);
   });
   input.addEventListener('keydown', e => {
     if (dropdown.style.display === 'none') return;
@@ -880,13 +1050,13 @@ function setupLoraSearch(item, loras) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       items.forEach(it => it.classList.remove('active'));
-      items[Math.min(idx + 1, items.length - 1)]?.classList.add('active');
-      items[Math.min(idx + 1, items.length - 1)]?.scrollIntoView({ block: 'nearest' });
+      const next = items[Math.min(idx + 1, items.length - 1)];
+      if (next) { next.classList.add('active'); next.scrollIntoView({ block: 'nearest' }); }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       items.forEach(it => it.classList.remove('active'));
-      items[Math.max(idx - 1, 0)]?.classList.add('active');
-      items[Math.max(idx - 1, 0)]?.scrollIntoView({ block: 'nearest' });
+      const prev = items[Math.max(idx - 1, 0)];
+      if (prev) { prev.classList.add('active'); prev.scrollIntoView({ block: 'nearest' }); }
     } else if (e.key === 'Enter' || e.key === 'Tab') {
       const active = getActive();
       if (active) {
@@ -897,17 +1067,18 @@ function setupLoraSearch(item, loras) {
       }
     } else if (e.key === 'Escape') {
       dropdown.style.display = 'none';
-      // Revert to last saved value
       if (hidden.value) input.value = hidden.value;
     }
   });
   input.addEventListener('blur', () => {
     setTimeout(() => {
       dropdown.style.display = 'none';
-      // If nothing selected, snap to closest match
+      // Snap to best match if user typed something but didn't pick
       if (!hidden.value && input.value) {
-        const match = loras.find(l => l.toLowerCase() === input.value.toLowerCase())
-                   || loras.find(l => l.toLowerCase().includes(input.value.toLowerCase()));
+        const q = input.value.toLowerCase();
+        const match = loras.find(l => l.toLowerCase() === q)
+                   || loras.find(l => l.toLowerCase().startsWith(q))
+                   || loras.find(l => l.toLowerCase().includes(q));
         if (match) { hidden.value = match; input.value = match; }
         else if (loras.length) { hidden.value = loras[0]; input.value = loras[0]; }
       } else if (!hidden.value && loras.length) {
@@ -924,6 +1095,13 @@ function removeLora(btn) {
   }
 }
 
+function toggleLora(btn) {
+  const item = btn.closest('.lora-item');
+  const enabled = item.classList.toggle('disabled');
+  btn.title = item.classList.contains('disabled') ? 'Enable' : 'Disable';
+  btn.textContent = item.classList.contains('disabled') ? '◎' : '◉';
+}
+
 function loraSliderInput(slider) {
   slider.closest('.lora-strength').querySelector('.lora-num').value = slider.value;
 }
@@ -933,6 +1111,7 @@ function loraNumInput(num) {
 function getActiveLoRAs() {
   const out = [];
   document.querySelectorAll('.lora-item').forEach(item => {
+    if (item.classList.contains('disabled')) return; // skip disabled loras
     const name = item.querySelector('.lora-sel').value;
     const strength = parseFloat(item.querySelector('.lora-num').value ?? 1);
     if (name) out.push({ name, strength });
@@ -980,6 +1159,15 @@ function updateCustomRes() {
   state.resH = parseInt(document.getElementById('customH').value) || 512;
   updateResDisplay();
 }
+
+function flipCustomRes() {
+  const wEl = document.getElementById('customW');
+  const hEl = document.getElementById('customH');
+  const tmp = wEl.value;
+  wEl.value = hEl.value;
+  hEl.value = tmp;
+  updateCustomRes();
+}
 function updateResDisplay() {
   document.getElementById('currentRes').textContent = `${state.resW} × ${state.resH}`;
 }
@@ -1017,7 +1205,25 @@ function toggleLockSeed() {
 // ─────────────────────────────────────────────
 function toggleQualityTagsPanel() {
   const panel = document.getElementById('qualityTagsPanel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  const isVisible = panel.style.display !== 'none';
+  panel.style.display = isVisible ? 'none' : 'block';
+}
+
+function switchQTagTab(tab, btn) {
+  // Update tab buttons
+  document.querySelectorAll('.qtag-ptab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Update panes
+  document.querySelectorAll('.qtag-pane').forEach(p => p.classList.remove('active-qtag-pane'));
+  const pane = document.getElementById('qtag-pane-' + tab);
+  if (pane) {
+    pane.classList.add('active-qtag-pane');
+    pane.style.display = 'block';
+  }
+  // Hide all other panes
+  document.querySelectorAll('.qtag-pane').forEach(p => {
+    if (!p.classList.contains('active-qtag-pane')) p.style.display = 'none';
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -1063,9 +1269,11 @@ async function handleBaseImgUploadFile(file) {
   const meta = await extractPNGMetadata(file);
 
   if (meta && Object.keys(meta).length > 0) {
+    // Store file/dataUrl ONLY as pending — do NOT write to state.img2imgFile yet.
+    // That only happens if the user clicks "img2img" or "img2img + metadata".
     state.pendingMetadata = meta;
-    state.img2imgFile = file;
-    state.img2imgDataUrl = dataUrl;
+    state._pendingImg2ImgFile    = file;
+    state._pendingImg2ImgDataUrl = dataUrl;
     document.getElementById('metaPreviewImg').src = dataUrl;
     document.getElementById('metaModal').classList.add('open');
     document.getElementById('metaBackdrop').classList.add('open');
@@ -1144,6 +1352,8 @@ function closeMetaModal() {
   document.getElementById('metaModal').classList.remove('open');
   document.getElementById('metaBackdrop').classList.remove('open');
   state.pendingMetadata = null;
+  state._pendingImg2ImgFile    = null;
+  state._pendingImg2ImgDataUrl = null;
 }
 
 function importMetadata() {
@@ -1180,14 +1390,20 @@ function importMetadata() {
     });
   }
   closeMetaModal();
-  updateTokenCount();
   updatePromptHighlight('positive');
   updatePromptHighlight('negative');
 }
 
 function useImg2Img() {
-  if (state.img2imgFile) setImg2Img(state.img2imgFile, state.img2imgDataUrl);
+  if (state._pendingImg2ImgFile) setImg2Img(state._pendingImg2ImgFile, state._pendingImg2ImgDataUrl);
   closeMetaModal();
+}
+
+// Import metadata AND send to img2img in one click
+function importAndUseImg2Img() {
+  // Set img2img from pending state first, then import metadata (which closes modal)
+  if (state._pendingImg2ImgFile) setImg2Img(state._pendingImg2ImgFile, state._pendingImg2ImgDataUrl);
+  importMetadata(); // applies checked meta fields and closes modal
 }
 
 function setImg2Img(file, dataUrl) {
@@ -1306,9 +1522,40 @@ function toggleHistoryPanel() {
 
 // Bug fix: history help tooltip on hover, not click
 
+// Insert a pending (loading spinner) placeholder into the history panel immediately
+// when generation starts. batchSize placeholders are added for batch jobs.
+// Remove any pending history placeholders (called on error or interrupt)
+function removePendingHistoryItems() {
+  const list = document.getElementById('historyList');
+  list.querySelectorAll('.history-pending').forEach(el => el.remove());
+  // If list is now empty, restore the empty hint
+  if (!list.querySelector('.history-item') && !list.querySelector('.history-empty')) {
+    list.innerHTML = '<p class="empty-hint history-empty">Generated images will appear here. Images in history will not be saved after closing the tab.</p>';
+  }
+}
+
+function addPendingHistoryItem(batchSize = 1) {
+  const list = document.getElementById('historyList');
+  const empty = list.querySelector('.history-empty');
+  if (empty) empty.remove();
+
+  const tpl = document.getElementById('historyPendingTemplate');
+  for (let i = 0; i < batchSize; i++) {
+    const clone = tpl.content.cloneNode(true);
+    const item = clone.querySelector('.history-pending');
+    // Tag with a generation ID so we can find it when replacing
+    item.dataset.pendingGen = state._pendingGenId || 'current';
+    list.insertBefore(clone, list.firstChild);
+  }
+}
+
 function addToHistory(imageUrl, metaObj) {
   state.historyCounter++;
   const id = state.historyCounter;
+
+  // Try to replace the topmost pending placeholder for this generation
+  const list = document.getElementById('historyList');
+  const pending = list.querySelector('.history-pending');
 
   const tpl = document.getElementById('historyItemTemplate');
   const clone = tpl.content.cloneNode(true);
@@ -1325,11 +1572,15 @@ function addToHistory(imageUrl, metaObj) {
     showConfirm('Delete this history image?', () => deleteHistoryItem(id));
   });
 
-  const empty = document.querySelector('.history-empty');
-  if (empty) empty.remove();
-
-  const list = document.getElementById('historyList');
-  list.insertBefore(clone, list.firstChild);
+  if (pending) {
+    // Replace the pending placeholder with the real image
+    list.replaceChild(clone, pending);
+  } else {
+    // No placeholder found — fall back to inserting at top
+    const emptyEl = list.querySelector('.history-empty');
+    if (emptyEl) emptyEl.remove();
+    list.insertBefore(clone, list.firstChild);
+  }
 
   state.history.push({ id, url: imageUrl, meta: metaObj });
 }
@@ -1635,6 +1886,34 @@ async function scanAutoCompleteFolder() {
     // Silently fail — user can still drop CSV files manually
     status.textContent = 'Auto-detect unavailable (use drag-and-drop below).';
   }
+
+  // After populating the select, restore the last-used source from the previous session
+  if (state._pendingAcSource) {
+    const pending = state._pendingAcSource;
+    delete state._pendingAcSource;
+    // Check if the option exists in the select (it will if the folder scan found it)
+    const match = [...select.options].find(o => o.value === pending);
+    if (match) {
+      select.value = pending;
+      await loadAutocompleteSource(true); // skipSave=true to avoid re-saving during restore
+    } else {
+      // Option not in select yet (e.g. dropped CSV) — try to load directly by path/url
+      // This handles the case where the source was a server-relative path
+      try {
+        const resp = await fetch(pending);
+        if (resp.ok) {
+          const text = await resp.text();
+          const name = pending.split('/').pop();
+          parseCSVText(text, name);
+          // Add a synthetic option so the select shows the right value
+          const opt = document.createElement('option');
+          opt.value = pending; opt.textContent = name;
+          select.appendChild(opt);
+          select.value = pending;
+        }
+      } catch(e) { /* silently ignore — CSV may have been moved */ }
+    }
+  }
 }
 
 function setupCSVDrop() {
@@ -1670,8 +1949,9 @@ function parseCSVText(text, name) {
   setupPromptAutocomplete();
 }
 
-async function loadAutocompleteSource() {
+async function loadAutocompleteSource(skipSave) {
   const val = document.getElementById('autocompleteSource').value;
+  if (!skipSave) saveAcSettings(); // persist the chosen source
   if (val === 'none') {
     state.autocompleteData = [];
     removeAutocompleteHandlers();
@@ -1700,9 +1980,11 @@ function removeAutocompleteHandlers() {
 }
 
 function saveAcSettings() {
+  const sourceEl = document.getElementById('autocompleteSource');
   localStorage.setItem('comfyStudioAcSettings', JSON.stringify({
     escapeParens: state.acEscapeParens,
     replaceUnderscores: state.acReplaceUnderscores,
+    source: sourceEl ? sourceEl.value : 'none',
   }));
 }
 
@@ -1711,6 +1993,8 @@ function setupPromptAutocomplete() {
   const textareas = [
     document.getElementById('positivePrompt'),
     document.getElementById('negativePrompt'),
+    document.getElementById('enhancePrompt'),
+    document.getElementById('enhanceNegativePrompt'),
   ];
   textareas.forEach(ta => {
     if (!ta) return;
@@ -1770,7 +2054,6 @@ function setupPromptAutocomplete() {
       const end   = textarea.selectionStart;
       textarea.value = textarea.value.slice(0, start) + finalTag + textarea.value.slice(end);
       textarea.selectionStart = textarea.selectionEnd = start + finalTag.length;
-      updateTokenCount();
     }
 
     ta.addEventListener('input', onInput);
@@ -1958,6 +2241,9 @@ async function generate() {
   showGenOverlay(true);
   clearProgress();
 
+  // Insert a pending placeholder card into history immediately
+  addPendingHistoryItem(batchSize);
+
   let img2imgNodeId = null;
   if (state.img2imgDataUrl) {
     try { img2imgNodeId = await uploadImg2ImgFile(); }
@@ -1979,8 +2265,11 @@ async function generate() {
     pollForImages(data.prompt_id, batchSize);
   } catch(e) {
     console.error(e);
-    alert(`Generation failed:\n${e.message}\n\nMake sure ComfyUI is running at ${state.comfyUrl} with --enable-cors-header`);
+    showGenOverlay(false);
+    clearProgress();
+    removePendingHistoryItems();
     resetBtn();
+    showToast('error', 'Generation Failed', e.message || String(e));
   }
 }
 
@@ -2052,8 +2341,11 @@ async function pollForImages(promptId, batchSize) {
       }
     } catch(e) { /* keep polling */ }
   }
+  showGenOverlay(false);
+  clearProgress();
+  removePendingHistoryItems();
   resetBtn();
-  alert('Generation timed out.');
+  showToast('error', 'Generation Timed Out', 'No response from ComfyUI after 10 minutes.');
 }
 
 async function displayImage(filename, subfolder, type) {
@@ -2061,7 +2353,36 @@ async function displayImage(filename, subfolder, type) {
   const url = `${state.comfyUrl}/view?${params}`;
 
   let finalUrl = url;
-  if (state.lastGenMeta) {
+
+  // ── Focused Inpainting: composite result crop back into original ──────────
+  if (state._focusedInpaintParams) {
+    state._wasInpaintResult = true;
+    const { origUrl, cropRect, featherPx } = state._focusedInpaintParams;
+    state._focusedInpaintParams = null; // clear before async ops to avoid double-fire
+
+    try {
+      const cropResp   = await fetch(url);
+      const cropBlob   = await cropResp.blob();
+      const cropBitmap = await createImageBitmap(cropBlob);
+
+      const compositeBlob = await compositeInpaintResult(origUrl, cropBitmap, cropRect, featherPx);
+
+      // Embed metadata and create final URL
+      if (state.lastGenMeta && state.saveMetadataEnabled !== false) {
+        try {
+          const enriched = await embedPNGMetadata(compositeBlob, state.lastGenMeta);
+          finalUrl = URL.createObjectURL(enriched);
+        } catch (e) {
+          finalUrl = URL.createObjectURL(compositeBlob);
+        }
+      } else {
+        finalUrl = URL.createObjectURL(compositeBlob);
+      }
+    } catch (e) {
+      console.warn('Focused inpaint composite failed, falling back to crop display:', e);
+      finalUrl = url;
+    }
+  } else if (state.lastGenMeta && state.saveMetadataEnabled !== false) {
     try {
       const resp = await fetch(url);
       const blob = await resp.blob();
@@ -2089,6 +2410,10 @@ async function displayImage(filename, subfolder, type) {
 
   // Add to history ONCE per image (bug fix: called once per image)
   addToHistory(finalUrl, state.lastGenMeta);
+
+  // Auto-save if enabled — detect inpaint by whether composite params were set
+  maybeAutoSave(!!state._wasInpaintResult);
+  state._wasInpaintResult = false;
 }
 
 async function fetchLatestImage() {
@@ -2114,12 +2439,157 @@ async function interrupt() {
   resetBtn();
 }
 
-function saveImage() {
+// ─────────────────────────────────────────────
+// OUTPUT PATHS & AUTO-SAVE
+// ─────────────────────────────────────────────
+function saveStepPreviewPref(_enabled) {
+  // Step preview is always enabled — this function is kept for compatibility
+  // but no longer does anything meaningful.
+  state.stepPreviewEnabled = true;
+}
+
+function saveOutputPaths() {
+  state.outputPath        = document.getElementById('outputPathInput')?.value.trim()  || '';
+  state.inpaintOutputPath = document.getElementById('inpaintOutputPathInput')?.value.trim() || '';
+  state.autoSaveEnabled   = document.getElementById('autoSaveToggle')?.checked || false;
+  // Reset sync flags so next save re-scans the new folder for existing file numbers
+  delete _counterSynced['default'];
+  delete _counterSynced['inpaint'];
+  localStorage.setItem('comfyStudioOutputPaths', JSON.stringify({
+    outputPath:        state.outputPath,
+    inpaintOutputPath: state.inpaintOutputPath,
+    autoSave:          state.autoSaveEnabled,
+  }));
+}
+
+// Per-session sync flag: set to true after we've queried share.py for existing file counts
+const _counterSynced = {};
+
+// Query share.py /list once per session per folder to seed the counter from actual disk contents.
+// This prevents re-using numbers if localStorage was cleared or files were added externally.
+async function syncCounterFromFolder(folderKey) {
+  if (_counterSynced[folderKey]) return;
+  _counterSynced[folderKey] = true;
+  const folderPath = folderKey === 'inpaint' && state.inpaintOutputPath
+    ? state.inpaintOutputPath
+    : state.outputPath;
+  if (!folderPath) return;
+  try {
+    const res = await fetch('http://127.0.0.1:3001/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: folderPath }),
+    });
+    if (!res.ok) return;
+    const { files } = await res.json();
+    let maxNum = 0;
+    for (const f of files) {
+      const m = f.match(/^ComfyStudio_(\d+)\.png$/i);
+      if (m) { const n = parseInt(m[1], 10); if (n > maxNum) maxNum = n; }
+    }
+    const storageKey = `comfyStudioFileCounter_${folderKey}`;
+    const stored = parseInt(localStorage.getItem(storageKey) || '0');
+    if (maxNum > stored) localStorage.setItem(storageKey, String(maxNum));
+  } catch(e) { /* share.py not running — counter still works from localStorage */ }
+}
+
+// Async version: syncs from disk first, then returns the next filename
+async function getNextOutputFilenameAsync(folderKey = 'default') {
+  await syncCounterFromFolder(folderKey);
+  return getNextOutputFilename(folderKey);
+}
+
+// Synchronous version (used as fallback)
+// Returns the next sequential filename for a given folder key ('default' or 'inpaint')
+// Counters are stored in localStorage so they persist across sessions and increment
+// rather than resetting. The format is ComfyStudio_00001.png
+function getNextOutputFilename(folderKey = 'default') {
+  const storageKey = `comfyStudioFileCounter_${folderKey}`;
+  let counter = parseInt(localStorage.getItem(storageKey) || '0') + 1;
+  localStorage.setItem(storageKey, String(counter));
+  return `ComfyStudio_${String(counter).padStart(5, '0')}.png`;
+}
+
+// Determine which folder path to use for a save
+// isInpaint: whether this is an inpaint result
+function getOutputPath(isInpaint = false) {
+  if (isInpaint && state.inpaintOutputPath) return state.inpaintOutputPath;
+  return state.outputPath || '';
+}
+
+async function saveImageToPath(imageUrl, folderPath, filename) {
+  // We can't write to the filesystem directly from a browser — we call share.py.
+  // share.py must be running (python share.py) for folder saves to work.
+  //
+  // share.py expects a base64 data URL. If imageUrl is a blob: URL (which is common
+  // when metadata has been embedded), we must first fetch the blob and convert it
+  // to a base64 data URL before sending — otherwise share.py receives the literal
+  // string "blob:http://..." and writes garbage bytes.
+  let dataUrl = imageUrl;
+  if (imageUrl.startsWith('blob:')) {
+    try {
+      const blob = await (await fetch(imageUrl)).blob();
+      dataUrl = await readFileAsDataURL(blob);
+    } catch (e) {
+      showToast('error', 'Save Failed', 'Could not read image data from memory.', 0);
+      return false;
+    }
+  }
+
+  try {
+    const res = await fetch('http://127.0.0.1:3001/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: folderPath, filename, dataUrl }),
+    });
+    if (res.ok) {
+      showToast('success', 'Image Saved', `Saved to ${folderPath}\\${filename}`, 3000);
+      return true;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      showToast('error', 'Save Failed', err.error || 'share.py returned an error.', 0);
+    }
+  } catch(e) {
+    // share.py not running
+    showToast('error', 'share.py Not Running',
+      'To save to a folder, run <code>python share.py</code> in the same directory as this app. Falling back to browser download.', 0);
+  }
+  return false;
+}
+
+async function saveImage(isInpaint = false) {
   if (!state.currentImageUrl) return;
-  const a = document.createElement('a');
-  a.href = state.currentImageUrl;
-  a.download = state.currentImageFilename || 'ComfyStudio.png';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const folderPath = getOutputPath(isInpaint);
+  const folderKey  = isInpaint && state.inpaintOutputPath ? 'inpaint' : 'default';
+  const filename   = await getNextOutputFilenameAsync(folderKey);
+
+  if (folderPath) {
+    // Try to save to path via share.py; if that fails, fall back to browser download
+    const saved = await saveImageToPath(state.currentImageUrl, folderPath, filename);
+    if (!saved) {
+      // Fallback: browser download with the sequential filename
+      const a = document.createElement('a');
+      a.href = state.currentImageUrl;
+      a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+  } else {
+    // No folder path configured — standard browser download
+    const a = document.createElement('a');
+    a.href = state.currentImageUrl;
+    a.download = state.currentImageFilename || filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+}
+
+// Called after every successful generation to handle auto-save
+async function maybeAutoSave(isInpaint = false) {
+  if (!state.autoSaveEnabled) return;
+  const folderPath = getOutputPath(isInpaint);
+  if (!folderPath) return;
+  const folderKey = isInpaint && state.inpaintOutputPath ? 'inpaint' : 'default';
+  const filename  = await getNextOutputFilenameAsync(folderKey);
+  saveImageToPath(state.currentImageUrl, folderPath, filename);
 }
 
 // ─────────────────────────────────────────────
@@ -2245,7 +2715,10 @@ async function doUpscaleGenerate() {
     deductMarbles(10);
   } catch(e) {
     showGenOverlay(false);
-    alert('Upscale failed: ' + e.message);
+    showGenOverlay(false);
+    clearProgress();
+    resetBtn();
+    showToast('error', 'Upscale Failed', e.message || String(e));
   }
 }
 
@@ -2364,9 +2837,9 @@ async function doEnhance() {
     nodes[encId] = { class_type: 'VAEEncode', inputs: { pixels: [scaleId,0], vae: vaeSrc } };
 
     const posId = id();
-    nodes[posId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: buildPositivePrompt() } };
+    nodes[posId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: getEnhancePositivePrompt() } };
     const negId = id();
-    nodes[negId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: buildNegativePrompt() } };
+    nodes[negId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: getEnhanceNegativePrompt() } };
 
     const ksId = id();
     nodes[ksId] = {
@@ -2397,7 +2870,10 @@ async function doEnhance() {
     deductMarbles(30);
   } catch(e) {
     showGenOverlay(false);
-    alert('Enhance failed: ' + e.message);
+    showGenOverlay(false);
+    clearProgress();
+    resetBtn();
+    showToast('error', 'Enhance Failed', e.message || String(e));
   }
 }
 
@@ -2456,6 +2932,11 @@ function saveMarbles() {
 function showGenOverlay(show) {
   document.getElementById('genOverlay').style.display = show ? 'flex' : 'none';
   if (show) document.getElementById('imgPlaceholder').style.display = 'none';
+  if (!show) {
+    clearStepPreview();
+    const gpo = document.getElementById('genProgressOverlay');
+    if (gpo) gpo.style.display = 'none';
+  }
 }
 
 function resetBtn() {
@@ -2706,7 +3187,6 @@ function loadSessionStart() {
       state.charCounter = data.charCounter;
     }
 
-    updateTokenCount();
     updatePromptHighlight('positive');
     updatePromptHighlight('negative');
     return data;
@@ -2817,6 +3297,221 @@ function toggleInpaint(enabled) {
 }
 
 // ─────────────────────────────────────────────
+// NOTES FEATURE
+// ─────────────────────────────────────────────
+function toggleNotesFeature(enabled) {
+  const tab = document.getElementById('notesTab');
+  if (tab) tab.style.display = enabled ? '' : 'none';
+  if (!enabled) {
+    // Switch away from notes if active
+    const activeTab = document.querySelector('.ptab.active');
+    if (activeTab && activeTab.id === 'notesTab') {
+      const posBtn = document.querySelector('.ptab:first-child');
+      if (posBtn) switchPromptTab('positive', posBtn);
+    }
+  }
+  localStorage.setItem('comfyStudioNotes', enabled);
+}
+
+function toggleHideCharacters(enabled) {
+  const card = document.getElementById('charactersCard');
+  if (card) card.style.display = enabled ? 'none' : '';
+  localStorage.setItem('comfyStudioHideChars', enabled);
+}
+
+function saveNotesContent() {
+  const ta = document.getElementById('notesTextarea');
+  if (ta) localStorage.setItem('comfyStudioNotes_content', ta.value);
+}
+
+// ─────────────────────────────────────────────
+// ENHANCE PROMPT TOGGLE
+// ─────────────────────────────────────────────
+function toggleEnhancePrompt(enabled) {
+  const wrap = document.getElementById('enhancePromptWrap');
+  if (wrap) wrap.style.display = enabled ? 'block' : 'none';
+  state.enhancePromptEnabled = enabled;
+  if (enabled) {
+    // Wire highlight updates for enhance textareas (idempotent — handlers are cheap)
+    const ePos = document.getElementById('enhancePrompt');
+    const eNeg = document.getElementById('enhanceNegativePrompt');
+    if (ePos) {
+      ePos.addEventListener('input', () => updateEnhanceHighlight('pos'));
+      ePos.addEventListener('scroll', () => syncEnhanceHighlightScroll('pos'));
+      updateEnhanceHighlight('pos');
+    }
+    if (eNeg) {
+      eNeg.addEventListener('input', () => updateEnhanceHighlight('neg'));
+      eNeg.addEventListener('scroll', () => syncEnhanceHighlightScroll('neg'));
+      updateEnhanceHighlight('neg');
+    }
+  }
+}
+
+function updateEnhanceHighlight(which) {
+  const ta    = document.getElementById(which === 'pos' ? 'enhancePrompt' : 'enhanceNegativePrompt');
+  const layer = document.getElementById(which === 'pos' ? 'highlightLayerEnhancePos' : 'highlightLayerEnhanceNeg');
+  if (!ta || !layer) return;
+  if (!state.modifierHighlightEnabled) { layer.innerHTML = ''; return; }
+  layer.innerHTML = escapeHTMLPreserveStructure(ta.value);
+  const cs = getComputedStyle(ta);
+  layer.style.fontSize      = cs.fontSize;
+  layer.style.lineHeight    = cs.lineHeight;
+  layer.style.fontFamily    = cs.fontFamily;
+  layer.style.letterSpacing = cs.letterSpacing;
+  layer.style.width         = ta.clientWidth + 'px';
+  syncEnhanceHighlightScroll(which);
+}
+
+function syncEnhanceHighlightScroll(which) {
+  const ta    = document.getElementById(which === 'pos' ? 'enhancePrompt' : 'enhanceNegativePrompt');
+  const layer = document.getElementById(which === 'pos' ? 'highlightLayerEnhancePos' : 'highlightLayerEnhanceNeg');
+  if (!ta || !layer) return;
+  layer.scrollTop  = ta.scrollTop;
+  layer.scrollLeft = ta.scrollLeft;
+}
+
+function getEnhancePositivePrompt() {
+  if (state.enhancePromptEnabled) {
+    const ta = document.getElementById('enhancePrompt');
+    if (ta && ta.value.trim()) return ta.value.trim();
+  }
+  return buildPositivePrompt();
+}
+
+function getEnhanceNegativePrompt() {
+  if (state.enhancePromptEnabled) {
+    const ta = document.getElementById('enhanceNegativePrompt');
+    if (ta && ta.value.trim()) return ta.value.trim();
+  }
+  return buildNegativePrompt();
+}
+
+// ─────────────────────────────────────────────
+// SAVE METADATA SETTING
+// ─────────────────────────────────────────────
+// Initialise in state
+state.saveMetadataEnabled = true;
+
+// ─────────────────────────────────────────────
+// WILDCARDS  (keyword-based, {{wc:name}} syntax)
+// ─────────────────────────────────────────────
+// wildcards: [{ name, tags: ['tag1','tag2',...] }]
+state.wildcards = [];
+
+function renderWildcardList() {
+  const list = document.getElementById('wildcardList');
+  const empty = document.getElementById('wildcardEmpty');
+  if (!list) return;
+  // Remove all chips
+  list.querySelectorAll('.wildcard-chip').forEach(c => c.remove());
+  if (state.wildcards.length === 0) {
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  state.wildcards.forEach((wc, idx) => {
+    const chip = document.createElement('div');
+    chip.className = 'wildcard-chip';
+    chip.title = `{{wc:${wc.name}}} — ${wc.tags.length} tag(s)`;
+    chip.innerHTML = `<span class="wildcard-chip-name">{{wc:${wc.name}}}</span><button class="wildcard-chip-edit" onclick="event.stopPropagation();openWildcardEditor(${idx})" title="Edit">✏</button>`;
+    list.appendChild(chip);
+  });
+}
+
+function addWildcard() {
+  openWildcardEditor(-1);
+}
+
+let _editingWildcardIdx = -1;
+
+function openWildcardEditor(idx) {
+  _editingWildcardIdx = idx;
+  const modal = document.getElementById('wildcardEditorModal');
+  const backdrop = document.getElementById('wildcardEditorBackdrop');
+  const nameInput = document.getElementById('wildcardEditorName');
+  const tagsArea = document.getElementById('wildcardEditorTags');
+  const deleteBtn = document.getElementById('wildcardDeleteBtn');
+
+  if (idx >= 0 && state.wildcards[idx]) {
+    nameInput.value = state.wildcards[idx].name;
+    tagsArea.value = state.wildcards[idx].tags.join('\n');
+    if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+  } else {
+    nameInput.value = '';
+    tagsArea.value = '';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+  }
+
+  modal.classList.add('open');
+  backdrop.classList.add('open');
+  nameInput.focus();
+}
+
+function closeWildcardEditor() {
+  document.getElementById('wildcardEditorModal').classList.remove('open');
+  document.getElementById('wildcardEditorBackdrop').classList.remove('open');
+}
+
+function saveWildcardEditor() {
+  const name = document.getElementById('wildcardEditorName').value.trim().replace(/\s+/g, '_');
+  const rawTags = document.getElementById('wildcardEditorTags').value;
+  if (!name) { showToast('error', 'Wildcard Error', 'Please enter a name.', 3000); return; }
+
+  const tags = rawTags.split('\n').map(t => t.trim()).filter(Boolean);
+  if (tags.length === 0) { showToast('error', 'Wildcard Error', 'Add at least one tag.', 3000); return; }
+
+  if (_editingWildcardIdx >= 0) {
+    state.wildcards[_editingWildcardIdx] = { name, tags };
+  } else {
+    // Check for duplicate name
+    if (state.wildcards.find(w => w.name === name)) {
+      showToast('error', 'Wildcard Error', `A wildcard named "${name}" already exists.`, 3000);
+      return;
+    }
+    state.wildcards.push({ name, tags });
+  }
+
+  saveWildcards();
+  renderWildcardList();
+  closeWildcardEditor();
+  showToast('success', 'Wildcard Saved', `{{wc:${name}}} with ${tags.length} tag(s) saved.`, 2500);
+}
+
+function deleteWildcardFromEditor() {
+  if (_editingWildcardIdx < 0) return;
+  const name = state.wildcards[_editingWildcardIdx]?.name || '';
+  showConfirm(`Delete wildcard "${name}"? This cannot be undone.`, () => {
+    state.wildcards.splice(_editingWildcardIdx, 1);
+    saveWildcards();
+    renderWildcardList();
+    closeWildcardEditor();
+  });
+}
+
+function saveWildcards() {
+  localStorage.setItem('comfyStudioWildcards', JSON.stringify(state.wildcards));
+}
+
+function loadWildcards() {
+  try {
+    const saved = localStorage.getItem('comfyStudioWildcards');
+    if (saved) state.wildcards = JSON.parse(saved);
+  } catch(e) {}
+  renderWildcardList();
+}
+
+// Resolve {{wc:name}} keywords in prompt text — replaces each with a random tag
+function resolveWildcards(text) {
+  return text.replace(/\{\{wc:([^}]+)\}\}/g, (match, name) => {
+    const wc = state.wildcards.find(w => w.name === name.trim());
+    if (!wc || !wc.tags.length) return match; // leave unchanged if not found
+    const randomTag = wc.tags[Math.floor(Math.random() * wc.tags.length)];
+    return randomTag;
+  });
+}
+
+// ─────────────────────────────────────────────
 // DRAW ON IMAGE MENU
 // ─────────────────────────────────────────────
 const drawState = {
@@ -2851,6 +3546,7 @@ function openDrawMenu() {
   drawState.isEyedrop = false;
   document.getElementById('drawEraserBtn').classList.remove('active');
   document.getElementById('drawEyedropBtn').classList.remove('active');
+  applyBrushCursor(canvas, drawState.brushSize, false);
 
   setupDrawEvents(canvas);
 }
@@ -2866,6 +3562,9 @@ function resizeDrawCanvas() {
   const scale = Math.min(wrapW / imgW, wrapH / imgH, 1);
   const displayW = Math.round(imgW * scale);
   const displayH = Math.round(imgH * scale);
+  const offsetX = Math.round((wrapW - displayW) / 2);
+  const offsetY = Math.round((wrapH - displayH) / 2);
+
   // Save old canvas data
   const tmpCanvas = document.createElement('canvas');
   tmpCanvas.width = canvas.width; tmpCanvas.height = canvas.height;
@@ -2874,10 +3573,20 @@ function resizeDrawCanvas() {
   }
   canvas.width = displayW;
   canvas.height = displayH;
-  canvas.style.width = displayW + 'px';
+  canvas.style.width  = displayW + 'px';
   canvas.style.height = displayH + 'px';
-  canvas.style.left = ((wrapW - displayW) / 2) + 'px';
-  canvas.style.top  = ((wrapH - displayH) / 2) + 'px';
+  canvas.style.left   = offsetX + 'px';
+  canvas.style.top    = offsetY + 'px';
+
+  // Match base image to canvas exactly
+  img.style.position = 'absolute';
+  img.style.inset    = 'unset';
+  img.style.width    = displayW + 'px';
+  img.style.height   = displayH + 'px';
+  img.style.left     = offsetX + 'px';
+  img.style.top      = offsetY + 'px';
+  img.style.objectFit = 'fill';
+
   // Restore old drawing scaled
   if (tmpCanvas.width > 0 && tmpCanvas.height > 0) {
     drawState.ctx = canvas.getContext('2d');
@@ -2967,15 +3676,119 @@ function drawLine(canvas, x1, y1, x2, y2) {
   ctx.restore();
 }
 
+// ── Brush cursor ──────────────────────────────────────────────────────────────
+// Generates a circular cursor matching the actual brush size and applies it
+// to the canvas element. Eraser gets a dashed outline; brush gets a filled dot.
+function applyBrushCursor(canvas, brushSize, isEraser, gridSnap = false) {
+  if (!canvas) return;
+  const r = Math.max(2, brushSize / 2);
+
+  if (gridSnap) {
+    // ── Grid Snap cursor: square(s) aligned to the 8px VAE grid ────────────
+    // The cursor should show approximately how many grid cells the brush covers.
+    // Each grid cell is 8px in image space, but we're in display space here,
+    // so we just use the brush diameter as the square side length for a faithful
+    // preview, snapped to multiples of 8 for visual honesty.
+    const CELL = 8;
+    // Side length: round brushSize to nearest multiple of CELL, minimum 1 cell
+    const rawSide = Math.max(CELL, Math.round(brushSize / CELL) * CELL);
+    const padding = 3;
+    const dim = rawSide + padding * 2 + 2; // a little breathing room
+    const c = document.createElement('canvas');
+    c.width = dim; c.height = dim;
+    const ctx = c.getContext('2d');
+    const x0 = padding + 0.5; // +0.5 for crisp 1px stroke
+    const y0 = padding + 0.5;
+    const side = rawSide - 1; // inset so stroke doesn't clip
+
+    if (isEraser) {
+      // Dashed square outline — eraser variant
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(x0, y0, side, side);
+      // Inner dark square for contrast
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      ctx.strokeRect(x0 + 1, y0 + 1, side - 2, side - 2);
+    } else {
+      // Filled semi-transparent square + white outline (brush variant)
+      ctx.fillStyle = 'rgba(80,140,255,0.25)';
+      ctx.fillRect(x0, y0, side, side);
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      ctx.strokeRect(x0, y0, side, side);
+      // Draw interior grid lines to show individual 8px cells when large enough
+      if (rawSide >= CELL * 2) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 0.5;
+        for (let g = CELL; g < rawSide; g += CELL) {
+          // Vertical grid line
+          ctx.beginPath();
+          ctx.moveTo(x0 + g, y0);
+          ctx.lineTo(x0 + g, y0 + side);
+          ctx.stroke();
+          // Horizontal grid line
+          ctx.beginPath();
+          ctx.moveTo(x0,        y0 + g);
+          ctx.lineTo(x0 + side, y0 + g);
+          ctx.stroke();
+        }
+      }
+    }
+    // Center dot
+    const cx = dim / 2;
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillRect(cx - 1, cx - 1, 2, 2);
+    canvas.style.cursor = `url(${c.toDataURL()}) ${cx} ${cx}, crosshair`;
+
+  } else {
+    // ── Normal circular cursor (original behaviour) ─────────────────────────
+    const dim = Math.max(6, Math.ceil(r * 2) + 4);
+    const cx = dim / 2;
+    const c = document.createElement('canvas');
+    c.width = dim; c.height = dim;
+    const ctx = c.getContext('2d');
+    if (isEraser) {
+      // Dashed circle outline for eraser
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath(); ctx.arc(cx, cx, r - 1, 0, Math.PI * 2); ctx.stroke();
+      // Inner dark ring for contrast
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(cx, cx, r - 2, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      // Filled semi-transparent circle + white outline
+      ctx.beginPath(); ctx.arc(cx, cx, r - 1, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(80,140,255,0.25)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    // Crosshair dot in center
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillRect(cx - 1, cx - 1, 2, 2);
+    canvas.style.cursor = `url(${c.toDataURL()}) ${cx} ${cx}, crosshair`;
+  }
+}
+
 function updateDrawBrushSize(val) {
   drawState.brushSize = parseInt(val);
   document.getElementById('drawBrushSizeVal').textContent = val;
+  applyBrushCursor(document.getElementById('drawCanvas'), drawState.brushSize, drawState.isEraser);
 }
 
 function updateDrawColor(val) {
   drawState.color = val;
   drawState.isEraser = false;
   document.getElementById('drawEraserBtn').classList.remove('active');
+  applyBrushCursor(document.getElementById('drawCanvas'), drawState.brushSize, false);
 }
 
 function toggleDrawEraser() {
@@ -2983,6 +3796,7 @@ function toggleDrawEraser() {
   drawState.isEyedrop = false;
   document.getElementById('drawEraserBtn').classList.toggle('active', drawState.isEraser);
   document.getElementById('drawEyedropBtn').classList.remove('active');
+  applyBrushCursor(document.getElementById('drawCanvas'), drawState.brushSize, drawState.isEraser);
 }
 
 function toggleDrawEyedrop() {
@@ -2990,6 +3804,10 @@ function toggleDrawEyedrop() {
   drawState.isEraser = false;
   document.getElementById('drawEyedropBtn').classList.toggle('active', drawState.isEyedrop);
   document.getElementById('drawEraserBtn').classList.remove('active');
+  // Eyedrop gets a crosshair
+  const canvas = document.getElementById('drawCanvas');
+  if (canvas) canvas.style.cursor = drawState.isEyedrop ? 'crosshair' : null;
+  if (!drawState.isEyedrop) applyBrushCursor(canvas, drawState.brushSize, false);
 }
 
 function pickColorFromImg(e, canvas, imgEl, callback) {
@@ -3055,6 +3873,7 @@ const inpaintState = {
   brushSize: 20,
   ctx: null,
   lastX: 0, lastY: 0,
+  gridSnap: false,  // when true: brush paints hard 8×8 latent-grid-aligned blocks
 };
 
 function openInpaintMenu() {
@@ -3075,6 +3894,10 @@ function openInpaintMenu() {
 
   inpaintState.isEraser = false;
   document.getElementById('inpaintEraserBtn').classList.remove('active');
+  // Sync grid snap button to current state (persists across open/close)
+  document.getElementById('inpaintGridSnapBtn').classList.toggle('active', inpaintState.gridSnap);
+  // Apply brush cursor
+  applyBrushCursor(document.getElementById('inpaintMaskCanvas'), inpaintState.brushSize, false, inpaintState.gridSnap);
 
   setupInpaintEvents(canvas);
 }
@@ -3090,6 +3913,8 @@ function resizeInpaintCanvas() {
   const scale = Math.min(wrapW / imgW, wrapH / imgH, 1);
   const displayW = Math.round(imgW * scale);
   const displayH = Math.round(imgH * scale);
+  const offsetX = Math.round((wrapW - displayW) / 2);
+  const offsetY = Math.round((wrapH - displayH) / 2);
 
   // Save existing mask drawing
   const tmpCanvas = document.createElement('canvas');
@@ -3097,9 +3922,19 @@ function resizeInpaintCanvas() {
   if (canvas.width > 0) tmpCanvas.getContext('2d').drawImage(canvas, 0, 0);
 
   canvas.width = displayW; canvas.height = displayH;
-  canvas.style.width = displayW + 'px'; canvas.style.height = displayH + 'px';
-  canvas.style.left = ((wrapW - displayW) / 2) + 'px';
-  canvas.style.top  = ((wrapH - displayH) / 2) + 'px';
+  canvas.style.width  = displayW + 'px';
+  canvas.style.height = displayH + 'px';
+  canvas.style.left   = offsetX + 'px';
+  canvas.style.top    = offsetY + 'px';
+
+  // Match base image position/size exactly to the canvas so they align pixel-perfect
+  img.style.position = 'absolute';
+  img.style.inset    = 'unset';
+  img.style.width    = displayW + 'px';
+  img.style.height   = displayH + 'px';
+  img.style.left     = offsetX + 'px';
+  img.style.top      = offsetY + 'px';
+  img.style.objectFit = 'fill'; // already sized correctly, no letterbox needed
 
   inpaintState.ctx = canvas.getContext('2d');
   // Restore previous mask if dimensions match
@@ -3149,6 +3984,61 @@ function setupInpaintEvents(canvas) {
   newCanvas.addEventListener('touchend', endPaint);
 }
 
+// ── Grid-snap helpers ────────────────────────────────────────────────────────
+// The canvas is displayed at a scaled size but the underlying mask bitmap is
+// at the original image's pixel dimensions (set in resizeInpaintCanvas).
+// We need to know the display→pixel scale to snap brush positions to the
+// 8×8 VAE latent grid in *image* space, then paint back in *display* space.
+
+function getCanvasDisplayScale(canvas) {
+  // canvas.width/height = actual pixel dims; getBoundingClientRect = display dims
+  const rect = canvas.getBoundingClientRect();
+  return {
+    scaleX: canvas.width  / (rect.width  || 1),
+    scaleY: canvas.height / (rect.height || 1),
+  };
+}
+
+// Given a display-space coordinate and brush radius, return an array of
+// 8×8 grid-aligned rectangles (in display space) that the brush covers.
+function gridCellsForBrush(canvas, cx, cy, brushRadius) {
+  const GRID = 8;
+  const { scaleX, scaleY } = getCanvasDisplayScale(canvas);
+
+  // Convert brush center + radius to image pixel space
+  const imgCX = cx * scaleX;
+  const imgCY = cy * scaleY;
+  const imgR  = brushRadius * Math.max(scaleX, scaleY);
+
+  // Find which 8×8 cells the circle overlaps in image space
+  const cellMinX = Math.floor((imgCX - imgR) / GRID);
+  const cellMinY = Math.floor((imgCY - imgR) / GRID);
+  const cellMaxX = Math.floor((imgCX + imgR) / GRID);
+  const cellMaxY = Math.floor((imgCY + imgR) / GRID);
+
+  const cells = [];
+  for (let gy = cellMinY; gy <= cellMaxY; gy++) {
+    for (let gx = cellMinX; gx <= cellMaxX; gx++) {
+      // Cell center in image space
+      const ccx = (gx + 0.5) * GRID;
+      const ccy = (gy + 0.5) * GRID;
+      // Only include if circle overlaps cell (distance to center < radius + half-cell)
+      const dx = Math.max(0, Math.abs(imgCX - ccx) - GRID / 2);
+      const dy = Math.max(0, Math.abs(imgCY - ccy) - GRID / 2);
+      if (Math.sqrt(dx * dx + dy * dy) <= imgR) {
+        // Convert back to display space for rendering
+        cells.push({
+          x: (gx * GRID) / scaleX,
+          y: (gy * GRID) / scaleY,
+          w: GRID / scaleX,
+          h: GRID / scaleY,
+        });
+      }
+    }
+  }
+  return cells;
+}
+
 function paintMaskDot(canvas, x, y) {
   const ctx = inpaintState.ctx || canvas.getContext('2d');
   ctx.save();
@@ -3159,36 +4049,83 @@ function paintMaskDot(canvas, x, y) {
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'rgba(80,140,255,0.85)';
   }
-  ctx.beginPath();
-  ctx.arc(x, y, inpaintState.brushSize / 2, 0, Math.PI * 2);
-  ctx.fill();
+
+  if (inpaintState.gridSnap) {
+    const cells = gridCellsForBrush(canvas, x, y, inpaintState.brushSize / 2);
+    for (const c of cells) ctx.fillRect(c.x, c.y, c.w, c.h);
+  } else {
+    ctx.beginPath();
+    ctx.arc(x, y, inpaintState.brushSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
 function paintMaskLine(canvas, x1, y1, x2, y2) {
   const ctx = inpaintState.ctx || canvas.getContext('2d');
-  ctx.save();
-  if (inpaintState.isEraser) {
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.strokeStyle = 'rgba(0,0,0,1)';
+
+  if (inpaintState.gridSnap) {
+    // Interpolate along the stroke and stamp grid cells at each step
+    ctx.save();
+    if (inpaintState.isEraser) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(80,140,255,0.85)';
+    }
+    const dx = x2 - x1, dy = y2 - y1;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const stepSize = Math.max(2, inpaintState.brushSize / 4);
+    const steps = Math.max(1, Math.ceil(dist / stepSize));
+    // Track painted cells this stroke to avoid redundant fillRects
+    const painted = new Set();
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const mx = x1 + dx * t;
+      const my = y1 + dy * t;
+      const cells = gridCellsForBrush(canvas, mx, my, inpaintState.brushSize / 2);
+      for (const c of cells) {
+        const key = `${c.x},${c.y}`;
+        if (!painted.has(key)) {
+          painted.add(key);
+          ctx.fillRect(c.x, c.y, c.w, c.h);
+        }
+      }
+    }
+    ctx.restore();
   } else {
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = 'rgba(80,140,255,0.85)';
+    ctx.save();
+    if (inpaintState.isEraser) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = 'rgba(80,140,255,0.85)';
+    }
+    ctx.lineWidth = inpaintState.brushSize;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.restore();
   }
-  ctx.lineWidth = inpaintState.brushSize;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-  ctx.restore();
+}
+
+function toggleGridSnap() {
+  inpaintState.gridSnap = !inpaintState.gridSnap;
+  document.getElementById('inpaintGridSnapBtn').classList.toggle('active', inpaintState.gridSnap);
+  applyBrushCursor(document.getElementById('inpaintMaskCanvas'), inpaintState.brushSize, inpaintState.isEraser, inpaintState.gridSnap);
 }
 
 function updateInpaintBrushSize(val) {
   inpaintState.brushSize = parseInt(val);
   document.getElementById('inpaintBrushSizeVal').textContent = val;
+  applyBrushCursor(document.getElementById('inpaintMaskCanvas'), inpaintState.brushSize, inpaintState.isEraser, inpaintState.gridSnap);
 }
 
 function toggleInpaintEraser() {
   inpaintState.isEraser = !inpaintState.isEraser;
   document.getElementById('inpaintEraserBtn').classList.toggle('active', inpaintState.isEraser);
+  applyBrushCursor(document.getElementById('inpaintMaskCanvas'), inpaintState.brushSize, inpaintState.isEraser, inpaintState.gridSnap);
 }
 
 function clearInpaintMask() {
@@ -3295,9 +4232,155 @@ function updateInpaintControlsVisibility() {
 // ─────────────────────────────────────────────
 // INPAINT WORKFLOW — hooked into generate()
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// FOCUSED INPAINTING (NovelAI-style)
+// Pipeline:
+//   1. JS: compute mask bounding box on the raw mask canvas/blob
+//   2. JS: expand bbox by contextPct padding → padded crop rect (snapped to 8px)
+//   3. JS: crop source image + mask to that rect using OffscreenCanvas
+//   4. JS: upscale crop to workingRes (long-edge)
+//   5. ComfyUI: VAEEncode + SetLatentNoiseMask (binary mask) + KSampler
+//   6. JS: downscale result back to crop dimensions
+//   7. JS: composite back into original full image using feathered mask
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Helper: toggle Full Image mode UI ──────────────────────────────────────
+function onFullImageToggle() {
+  const full = document.getElementById('inpaintFullImageToggle')?.checked;
+  const focEl  = document.getElementById('focusedInpaintControls');
+  const fullEl = document.getElementById('fullImageInpaintControls');
+  if (focEl)  focEl.style.display  = full ? 'none'  : '';
+  if (fullEl) fullEl.style.display = full ? '' : 'none';
+}
+
+// ── Helper: get bounding box of non-transparent pixels in ImageData ─────────
+function getMaskBoundingBox(imageData) {
+  const { data, width, height } = imageData;
+  let minX = width, minY = height, maxX = 0, maxY = 0, found = false;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const a = data[(y * width + x) * 4 + 3]; // alpha channel
+      if (a > 16) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        found = true;
+      }
+    }
+  }
+  if (!found) return null;
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+// ── Helper: snap a crop rect to the 8px VAE latent grid ────────────────────
+function snapToLatentGrid(rect, imgW, imgH) {
+  const GRID = 8;
+  let x = Math.floor(rect.x / GRID) * GRID;
+  let y = Math.floor(rect.y / GRID) * GRID;
+  let x2 = Math.ceil((rect.x + rect.w) / GRID) * GRID;
+  let y2 = Math.ceil((rect.y + rect.h) / GRID) * GRID;
+  x  = Math.max(0, x);
+  y  = Math.max(0, y);
+  x2 = Math.min(imgW, x2);
+  y2 = Math.min(imgH, y2);
+  return { x, y, w: x2 - x, h: y2 - y };
+}
+
+// ── Helper: crop an ImageBitmap to a rect and return a Blob ────────────────
+async function cropImageBitmapToBlob(bitmap, rect) {
+  const oc = new OffscreenCanvas(rect.w, rect.h);
+  const ctx = oc.getContext('2d');
+  ctx.drawImage(bitmap, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+  return oc.convertToBlob({ type: 'image/png' });
+}
+
+// ── Helper: scale an ImageBitmap to target dimensions and return a Blob ─────
+async function scaleBitmapToBlob(bitmap, targetW, targetH) {
+  const oc = new OffscreenCanvas(targetW, targetH);
+  const ctx = oc.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+  return oc.convertToBlob({ type: 'image/png' });
+}
+
+// ── Helper: composite inpainted crop back into full original image ──────────
+// Returns a Blob of the composited full-size image.
+async function compositeInpaintResult(origDataUrl, resultBitmap, cropRect, featherPx) {
+  // Draw original
+  const origBlob = await (await fetch(origDataUrl)).blob();
+  const origBitmap = await createImageBitmap(origBlob);
+
+  const oc = new OffscreenCanvas(origBitmap.width, origBitmap.height);
+  const ctx = oc.getContext('2d');
+
+  // 1. Draw original
+  ctx.drawImage(origBitmap, 0, 0);
+
+  // 2. The result bitmap is at the inpainted-crop scale, so we need to
+  //    scale it back to the cropRect dimensions in the original space
+  const scaledW = cropRect.w;
+  const scaledH = cropRect.h;
+
+  // Create a temporary canvas for the scaled-down result
+  const tmpOc = new OffscreenCanvas(scaledW, scaledH);
+  const tmpCtx = tmpOc.getContext('2d');
+  tmpCtx.imageSmoothingEnabled = true;
+  tmpCtx.imageSmoothingQuality = 'high';
+  tmpCtx.drawImage(resultBitmap, 0, 0, scaledW, scaledH);
+
+  if (featherPx <= 0) {
+    // Hard composite: just draw result at crop position
+    ctx.drawImage(tmpOc, cropRect.x, cropRect.y);
+  } else {
+    // Feathered composite using a radial-feathered mask drawn into the crop area
+    // We draw a feathered mask on a small canvas, use it as clip, then draw result
+    const maskOc = new OffscreenCanvas(scaledW, scaledH);
+    const maskCtx = maskOc.getContext('2d');
+    // Black base (transparent for composite)
+    maskCtx.fillStyle = 'black';
+    maskCtx.fillRect(0, 0, scaledW, scaledH);
+    // White solid center with feathered edge
+    const grd = maskCtx.createLinearGradient(0, 0, featherPx, 0); // placeholder for edge
+    // Use a box with gaussian-like feathering via shadowBlur trick
+    maskCtx.shadowColor = 'white';
+    maskCtx.shadowBlur  = featherPx * 2;
+    maskCtx.fillStyle   = 'white';
+    const inset = Math.max(1, featherPx);
+    maskCtx.fillRect(inset, inset, scaledW - inset * 2, scaledH - inset * 2);
+
+    // Now composite: draw result in a temp, mask it, paste to main
+    const composOc = new OffscreenCanvas(scaledW, scaledH);
+    const composCtx = composOc.getContext('2d');
+    composCtx.drawImage(tmpOc, 0, 0);
+    composCtx.globalCompositeOperation = 'destination-in';
+    composCtx.drawImage(maskOc, 0, 0);
+
+    ctx.drawImage(composOc, cropRect.x, cropRect.y);
+  }
+
+  return oc.convertToBlob({ type: 'image/png' });
+}
+
+// ── Helper: compute working resolution keeping aspect ratio ────────────────
+function computeWorkingSize(cropW, cropH, targetLongEdge) {
+  const GRID = 8;
+  let w, h;
+  if (cropW >= cropH) {
+    w = targetLongEdge;
+    h = Math.round((cropH / cropW) * targetLongEdge);
+  } else {
+    h = targetLongEdge;
+    w = Math.round((cropW / cropH) * targetLongEdge);
+  }
+  // Snap to 8px for VAE compatibility
+  w = Math.round(w / GRID) * GRID;
+  h = Math.round(h / GRID) * GRID;
+  return { w: Math.max(GRID, w), h: Math.max(GRID, h) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Patch: if a mask is active, route generate() to generateInpaint()
-// We do this by checking at the top of generate() rather than wrapping.
-// See the DOMContentLoaded block below where we monkey-patch safely.
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function generateInpaint() {
   if (state.generating) return;
@@ -3306,43 +4389,38 @@ async function generateInpaint() {
     if (state.marbles < cost) { alert(`Not enough marbles! Need ${cost}, have ${state.marbles}.`); return; }
   }
 
+  const useFullImage = document.getElementById('inpaintFullImageToggle')?.checked || false;
+
+  // Route to legacy full-image mode if toggled
+  if (useFullImage) {
+    return generateInpaintFullImage();
+  }
+
   state.generating = true;
   const btn = document.getElementById('generateBtn');
   btn.classList.add('loading');
   document.getElementById('genBtnText').textContent = 'Inpainting…';
   showGenOverlay(true);
-  document.getElementById('genOverlayText').textContent = 'Inpainting…';
+  document.getElementById('genOverlayText').textContent = 'Focused Inpainting…';
   clearProgress();
+  addPendingHistoryItem(1);
 
   try {
-    // Upload original (unmasked) source image
-    const origUrl = state.inpaintOrigDataUrl || state.img2imgDataUrl;
-    const imgBlob = await (await fetch(origUrl)).blob();
-    const imgFile = new File([imgBlob], 'inpaint_src.png', {type:'image/png'});
-    const imgFd = new FormData(); imgFd.append('image', imgFile, imgFile.name);
-    const imgUp = await fetch(`${state.comfyUrl}/upload/image`, {method:'POST', body:imgFd});
-    if (!imgUp.ok) throw new Error('Image upload failed');
-    const {name: imgName} = await imgUp.json();
-
-    // Upload mask
-    const maskFile = new File([state.inpaintMaskBlob], 'inpaint_mask.png', {type:'image/png'});
-    const maskFd = new FormData(); maskFd.append('image', maskFile, maskFile.name);
-    const maskUp = await fetch(`${state.comfyUrl}/upload/image`, {method:'POST', body:maskFd});
-    if (!maskUp.ok) throw new Error('Mask upload failed');
-    const {name: maskName} = await maskUp.json();
-
-    const denoise   = parseFloat(document.getElementById('inpaintDenoiseNum')?.value) || 0.85;
-    const maskBlur  = parseInt(document.getElementById('inpaintMaskBlurNum')?.value) || 4;
-    const maskMode  = document.getElementById('inpaintMaskMode')?.value || 'masked';
-    const positive  = buildPositivePrompt();
-    const negative  = buildNegativePrompt();
-    const vaeRaw    = document.getElementById('vaeSelect').value;
-    const sampler   = document.getElementById('samplerName').value;
-    const scheduler = document.getElementById('scheduler').value;
-    const steps     = parseInt(document.getElementById('stepsNum').value) || 20;
-    const cfg       = parseFloat(document.getElementById('cfgNum').value) || 7;
-    const te        = document.getElementById('teSelect')?.value ?? 'none';
-    const teType    = document.getElementById('teType')?.value ?? 'stable_diffusion';
+    // ── Read parameters ──────────────────────────────────────────────────────
+    const denoise      = parseFloat(document.getElementById('inpaintDenoiseNum')?.value) || 0.85;
+    const featherPx    = parseInt(document.getElementById('inpaintMaskBlurNum')?.value) || 8;
+    const maskMode     = document.getElementById('inpaintMaskMode')?.value || 'masked';
+    const contextPct   = (parseInt(document.getElementById('inpaintContextSlider2')?.value) || 10) / 100;
+    const workingRes   = parseInt(document.getElementById('inpaintWorkingRes')?.value) || 1024;
+    const positive     = buildPositivePrompt();
+    const negative     = buildNegativePrompt();
+    const sampler      = document.getElementById('samplerName').value;
+    const scheduler    = document.getElementById('scheduler').value;
+    const steps        = parseInt(document.getElementById('stepsNum').value) || 20;
+    const cfg          = parseFloat(document.getElementById('cfgNum').value) || 7;
+    const vaeRaw       = document.getElementById('vaeSelect').value;
+    const te           = document.getElementById('teSelect')?.value ?? 'none';
+    const teType       = document.getElementById('teType')?.value ?? 'stable_diffusion';
 
     let seed = parseInt(document.getElementById('seedInput').value);
     if (seed === -1 || !state.seedLocked) {
@@ -3350,11 +4428,77 @@ async function generateInpaint() {
       if (!state.seedLocked) document.getElementById('seedInput').value = seed;
     }
 
+    // ── Step 1-3: Bounding box → padded crop rect ────────────────────────────
+    document.getElementById('genOverlayText').textContent = 'Computing crop region…';
+
+    const origUrl  = state.inpaintOrigDataUrl || state.img2imgDataUrl;
+    const origBlob = await (await fetch(origUrl)).blob();
+    const origBitmap = await createImageBitmap(origBlob);
+    const imgW = origBitmap.width;
+    const imgH = origBitmap.height;
+
+    // Get the mask blob and find bounding box
+    const maskBlob   = state.inpaintMaskBlob;
+    const maskBitmap = await createImageBitmap(maskBlob);
+
+    // Read mask pixels at native image dimensions (mask may be at display scale → rescale)
+    const maskOc = new OffscreenCanvas(imgW, imgH);
+    const maskCtx2 = maskOc.getContext('2d');
+    maskCtx2.drawImage(maskBitmap, 0, 0, imgW, imgH);
+    const maskData = maskCtx2.getImageData(0, 0, imgW, imgH);
+
+    const bbox = getMaskBoundingBox(maskData);
+    if (!bbox) throw new Error('Mask is empty — paint a mask first.');
+
+    // Expand bbox by context padding
+    const padX = Math.round(bbox.w * contextPct);
+    const padY = Math.round(bbox.h * contextPct);
+    const rawCrop = {
+      x: bbox.x - padX,
+      y: bbox.y - padY,
+      w: bbox.w + padX * 2,
+      h: bbox.h + padY * 2,
+    };
+    // Snap to 8px latent grid and clamp to image bounds
+    const cropRect = snapToLatentGrid(rawCrop, imgW, imgH);
+
+    // ── Step 4: Crop source image and mask, upscale to working resolution ────
+    document.getElementById('genOverlayText').textContent = 'Preparing crop…';
+
+    const { w: workW, h: workH } = computeWorkingSize(cropRect.w, cropRect.h, workingRes);
+
+    // Crop + scale source image
+    const croppedImgBlob  = await cropImageBitmapToBlob(origBitmap, cropRect);
+    const croppedImgBmap  = await createImageBitmap(croppedImgBlob);
+    const scaledImgBlob   = await scaleBitmapToBlob(croppedImgBmap, workW, workH);
+
+    // Crop + scale mask (BINARY — no feathering at this stage)
+    const croppedMaskBlob = await cropImageBitmapToBlob(maskBitmap, cropRect);
+    const croppedMaskBmap = await createImageBitmap(croppedMaskBlob);
+    const scaledMaskBlob  = await scaleBitmapToBlob(croppedMaskBmap, workW, workH);
+
+    // ── Step 5: Upload to ComfyUI and run inpainting ─────────────────────────
+    document.getElementById('genOverlayText').textContent = 'Uploading to ComfyUI…';
+
+    const imgFile = new File([scaledImgBlob], 'fi_src.png', { type: 'image/png' });
+    const imgFd   = new FormData(); imgFd.append('image', imgFile, imgFile.name);
+    const imgUp   = await fetch(`${state.comfyUrl}/upload/image`, { method: 'POST', body: imgFd });
+    if (!imgUp.ok) throw new Error('Image upload failed');
+    const { name: imgName } = await imgUp.json();
+
+    const maskFile = new File([scaledMaskBlob], 'fi_mask.png', { type: 'image/png' });
+    const maskFd   = new FormData(); maskFd.append('image', maskFile, maskFile.name);
+    const maskUp   = await fetch(`${state.comfyUrl}/upload/image`, { method: 'POST', body: maskFd });
+    if (!maskUp.ok) throw new Error('Mask upload failed');
+    const { name: maskName } = await maskUp.json();
+
+    // ── Build ComfyUI workflow ───────────────────────────────────────────────
     const nodes = {};
-    let nid = 1; const id = () => String(nid++);
+    let nid = 1;
+    const id = () => String(nid++);
     let modelSrc, clipSrc, vaeSrc;
 
-    // Load model (same as main workflow)
+    // Load model
     if (state.modelType === 'checkpoint') {
       const ckptId = id();
       nodes[ckptId] = { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: document.getElementById('checkpointSelect').value } };
@@ -3392,23 +4536,17 @@ async function generateInpaint() {
       modelSrc = [loraId, 0]; clipSrc = [loraId, 1];
     });
 
-    // Load full image (used for context AND as latent base)
+    // Load cropped+scaled image and mask
     const loadImgId = id();
     nodes[loadImgId] = { class_type: 'LoadImage', inputs: { image: imgName, upload: 'image' } };
 
-    // Load mask image → convert to mask tensor
     const loadMaskId = id();
     nodes[loadMaskId] = { class_type: 'LoadImage', inputs: { image: maskName, upload: 'image' } };
     const imgToMaskId = id();
     nodes[imgToMaskId] = { class_type: 'ImageToMask', inputs: { image: [loadMaskId, 0], channel: 'red' } };
 
-    // Optional mask blur (GrowMask expands + softens edges)
+    // Binary mask — no blur/grow here. Feathering is done during JS compositing.
     let maskSrc = [imgToMaskId, 0];
-    if (maskBlur > 0) {
-      const growId = id();
-      nodes[growId] = { class_type: 'GrowMask', inputs: { mask: maskSrc, expand: maskBlur, tapered_corners: true } };
-      maskSrc = [growId, 0];
-    }
 
     // Invert if user wants to inpaint the unmasked area
     if (maskMode === 'unmasked') {
@@ -3417,11 +4555,10 @@ async function generateInpaint() {
       maskSrc = [invId, 0];
     }
 
-    // Encode WHOLE image into latent — this is the key: full image context is always preserved
+    // Encode cropped image → latent, apply binary noise mask
+    const resolvedVae = vaeSrc || [Object.keys(nodes)[0], 2];
     const vaeEncId = id();
-    nodes[vaeEncId] = { class_type: 'VAEEncode', inputs: { pixels: [loadImgId, 0], vae: vaeSrc || [Object.keys(nodes)[0], 2] } };
-
-    // Apply the mask as a latent noise mask — only the masked region gets diffused
+    nodes[vaeEncId] = { class_type: 'VAEEncode', inputs: { pixels: [loadImgId, 0], vae: resolvedVae } };
     const setMaskId = id();
     nodes[setMaskId] = { class_type: 'SetLatentNoiseMask', inputs: { samples: [vaeEncId, 0], mask: maskSrc } };
 
@@ -3431,7 +4568,7 @@ async function generateInpaint() {
     const negId = id();
     nodes[negId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: negative } };
 
-    // KSampler — operates on full latent but only noises the masked region
+    // KSampler
     const ksId = id();
     nodes[ksId] = {
       class_type: 'KSampler',
@@ -3442,14 +4579,171 @@ async function generateInpaint() {
       }
     };
 
-    // Decode & save
+    // Decode
     const decId = id();
-    nodes[decId] = { class_type: 'VAEDecode', inputs: { samples: [ksId, 0], vae: vaeSrc || [Object.keys(nodes)[0], 2] } };
-    const saveId = id();
-    nodes[saveId] = { class_type: 'SaveImage', inputs: { images: [decId, 0], filename_prefix: 'ComfyStudio_Inpaint' } };
+    nodes[decId] = { class_type: 'VAEDecode', inputs: { samples: [ksId, 0], vae: resolvedVae } };
 
+    // Save (intermediate — we'll composite in JS after)
+    const saveId = id();
+    nodes[saveId] = { class_type: 'SaveImage', inputs: { images: [decId, 0], filename_prefix: 'ComfyStudio_FI_Crop' } };
+
+    document.getElementById('genOverlayText').textContent = 'Inpainting crop…';
     state.lastGenMeta = captureGenMeta(seed);
 
+    const res = await fetch(`${state.comfyUrl}/prompt`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: nodes, client_id: state.clientId })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const { prompt_id } = await res.json();
+    state.lastPromptId = prompt_id;
+
+    // ── Step 6-7: Poll, then composite result back into original ─────────────
+    // We intercept image delivery by polling manually and doing JS compositing
+    document.getElementById('genOverlayText').textContent = 'Compositing result…';
+
+    // Use a special flag so pollForImages knows to composite instead of direct display
+    state._focusedInpaintParams = { origUrl, cropRect, featherPx };
+    await pollForImages(prompt_id, 1);
+    // _focusedInpaintParams cleared inside the composite handler
+
+    deductMarbles(MARBLE_COSTS[state.resCategory] || 5);
+
+  } catch (e) {
+    showGenOverlay(false);
+    resetBtn();
+    showGenOverlay(false);
+    clearProgress();
+    resetBtn();
+    showToast('error', 'Focused Inpaint Failed', e.message || String(e));
+    console.error(e);
+  }
+}
+
+// ── Legacy full-image inpainting (retained as fallback) ───────────────────
+async function generateInpaintFullImage() {
+  state.generating = true;
+  const btn = document.getElementById('generateBtn');
+  btn.classList.add('loading');
+  document.getElementById('genBtnText').textContent = 'Inpainting…';
+  showGenOverlay(true);
+  document.getElementById('genOverlayText').textContent = 'Inpainting (full image)…';
+  clearProgress();
+  addPendingHistoryItem(1);
+
+  try {
+    const origUrl = state.inpaintOrigDataUrl || state.img2imgDataUrl;
+    const imgBlob = await (await fetch(origUrl)).blob();
+    const imgFile = new File([imgBlob], 'inpaint_src.png', {type:'image/png'});
+    const imgFd = new FormData(); imgFd.append('image', imgFile, imgFile.name);
+    const imgUp = await fetch(`${state.comfyUrl}/upload/image`, {method:'POST', body:imgFd});
+    if (!imgUp.ok) throw new Error('Image upload failed');
+    const {name: imgName} = await imgUp.json();
+
+    const maskFile = new File([state.inpaintMaskBlob], 'inpaint_mask.png', {type:'image/png'});
+    const maskFd = new FormData(); maskFd.append('image', maskFile, maskFile.name);
+    const maskUp = await fetch(`${state.comfyUrl}/upload/image`, {method:'POST', body:maskFd});
+    if (!maskUp.ok) throw new Error('Mask upload failed');
+    const {name: maskName} = await maskUp.json();
+
+    const denoise   = parseFloat(document.getElementById('inpaintDenoiseNum')?.value) || 0.85;
+    const maskBlur  = parseInt(document.getElementById('inpaintMaskBlurFullNum')?.value) || 4;
+    const maskMode  = document.getElementById('inpaintMaskModeFullImage')?.value || 'masked';
+    const positive  = buildPositivePrompt();
+    const negative  = buildNegativePrompt();
+    const vaeRaw    = document.getElementById('vaeSelect').value;
+    const sampler   = document.getElementById('samplerName').value;
+    const scheduler = document.getElementById('scheduler').value;
+    const steps     = parseInt(document.getElementById('stepsNum').value) || 20;
+    const cfg       = parseFloat(document.getElementById('cfgNum').value) || 7;
+    const te        = document.getElementById('teSelect')?.value ?? 'none';
+    const teType    = document.getElementById('teType')?.value ?? 'stable_diffusion';
+
+    let seed = parseInt(document.getElementById('seedInput').value);
+    if (seed === -1 || !state.seedLocked) {
+      seed = Math.floor(Math.random() * 2**32);
+      if (!state.seedLocked) document.getElementById('seedInput').value = seed;
+    }
+
+    const nodes = {};
+    let nid = 1; const id = () => String(nid++);
+    let modelSrc, clipSrc, vaeSrc;
+
+    if (state.modelType === 'checkpoint') {
+      const ckptId = id();
+      nodes[ckptId] = { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: document.getElementById('checkpointSelect').value } };
+      modelSrc = [ckptId, 0]; clipSrc = [ckptId, 1]; vaeSrc = [ckptId, 2];
+    } else {
+      const unetId = id();
+      nodes[unetId] = { class_type: 'UNETLoader', inputs: { unet_name: document.getElementById('diffusionSelect').value, weight_dtype: 'default' } };
+      modelSrc = [unetId, 0]; vaeSrc = null;
+      if (te && te !== 'none') {
+        const clipId = id();
+        nodes[clipId] = { class_type: 'CLIPLoader', inputs: { clip_name: te, type: teType } };
+        clipSrc = [clipId, 0];
+      }
+    }
+
+    if (vaeRaw && !vaeRaw.startsWith('Automatic')) {
+      const vaeId = id();
+      nodes[vaeId] = { class_type: 'VAELoader', inputs: { vae_name: vaeRaw } };
+      vaeSrc = [vaeId, 0];
+    }
+
+    if (state.vPrediction) {
+      const vpId = id();
+      nodes[vpId] = { class_type: 'ModelSamplingDiscrete', inputs: { model: modelSrc, sampling: 'v_prediction', zsnr: true } };
+      modelSrc = [vpId, 0];
+    }
+    if (state.rescaleCFGEnabled) {
+      const rcId = id();
+      nodes[rcId] = { class_type: 'RescaleCFG', inputs: { model: modelSrc, multiplier: parseFloat(document.getElementById('rescaleCFGNum').value) } };
+      modelSrc = [rcId, 0];
+    }
+    getActiveLoRAs().forEach(lora => {
+      const loraId = id();
+      nodes[loraId] = { class_type: 'LoraLoader', inputs: { model: modelSrc, clip: clipSrc, lora_name: lora.name, strength_model: lora.strength, strength_clip: lora.strength } };
+      modelSrc = [loraId, 0]; clipSrc = [loraId, 1];
+    });
+
+    const loadImgId = id();
+    nodes[loadImgId] = { class_type: 'LoadImage', inputs: { image: imgName, upload: 'image' } };
+    const loadMaskId = id();
+    nodes[loadMaskId] = { class_type: 'LoadImage', inputs: { image: maskName, upload: 'image' } };
+    const imgToMaskId = id();
+    nodes[imgToMaskId] = { class_type: 'ImageToMask', inputs: { image: [loadMaskId, 0], channel: 'red' } };
+
+    let maskSrc = [imgToMaskId, 0];
+    if (maskBlur > 0) {
+      const growId = id();
+      nodes[growId] = { class_type: 'GrowMask', inputs: { mask: maskSrc, expand: maskBlur, tapered_corners: true } };
+      maskSrc = [growId, 0];
+    }
+    if (maskMode === 'unmasked') {
+      const invId = id();
+      nodes[invId] = { class_type: 'InvertMask', inputs: { mask: maskSrc } };
+      maskSrc = [invId, 0];
+    }
+
+    const vaeEncId = id();
+    nodes[vaeEncId] = { class_type: 'VAEEncode', inputs: { pixels: [loadImgId, 0], vae: vaeSrc } };
+    const setMaskId = id();
+    nodes[setMaskId] = { class_type: 'SetLatentNoiseMask', inputs: { samples: [vaeEncId, 0], mask: maskSrc } };
+
+    const posId = id(); nodes[posId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: positive } };
+    const negId = id(); nodes[negId] = { class_type: 'CLIPTextEncode', inputs: { clip: clipSrc, text: negative } };
+
+    const ksId = id();
+    nodes[ksId] = { class_type: 'KSampler', inputs: {
+      model: modelSrc, positive: [posId, 0], negative: [negId, 0],
+      latent_image: [setMaskId, 0], seed, steps, cfg, sampler_name: sampler, scheduler, denoise,
+    }};
+
+    const decId = id(); nodes[decId] = { class_type: 'VAEDecode', inputs: { samples: [ksId, 0], vae: vaeSrc } };
+    const saveId = id(); nodes[saveId] = { class_type: 'SaveImage', inputs: { images: [decId, 0], filename_prefix: 'ComfyStudio_Inpaint' } };
+
+    state.lastGenMeta = captureGenMeta(seed);
+    state._wasInpaintResult = true;
     const res = await fetch(`${state.comfyUrl}/prompt`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ prompt: nodes, client_id: state.clientId })
@@ -3461,8 +4755,9 @@ async function generateInpaint() {
     deductMarbles(MARBLE_COSTS[state.resCategory] || 5);
   } catch(e) {
     showGenOverlay(false);
+    clearProgress();
     resetBtn();
-    alert('Inpaint failed: ' + e.message);
+    showToast('error', 'Inpaint Failed', e.message || String(e));
   }
 }
 

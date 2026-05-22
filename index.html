@@ -12,6 +12,13 @@
 
   <div class="bg-layer"></div>
   <div class="noise-overlay"></div>
+  <!-- Bubble layer: only visible under [data-theme="ocean"], ignored by all other themes -->
+  <div class="bubble-layer" aria-hidden="true">
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+  </div>
 
   <!-- ═══ SETTINGS MODAL ═══ -->
   <div class="modal-backdrop" id="settingsBackdrop" onclick="closeSettings()"></div>
@@ -40,6 +47,14 @@
         <button class="theme-btn" data-theme="novelai-light" onclick="applyTheme('novelai-light',this)">
           <span class="theme-swatch" style="background:linear-gradient(135deg,#f0f0fa,#6470e0)"></span>
           Light
+        </button>
+        <button class="theme-btn" data-theme="nai-blue" onclick="applyTheme('nai-blue',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0d0e1a,#7c6ff0)"></span>
+          NAI Blue
+        </button>
+        <button class="theme-btn" data-theme="nai-light" onclick="applyTheme('nai-light',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#edeeff,#5a50d8)"></span>
+          NAI Light
         </button>
 		<button class="theme-btn" data-theme="subtle-terminal" onclick="applyTheme('subtle-terminal', this)">
 		  <span class="theme-swatch" style="background:linear-gradient(135deg,#121212,#00ff46)"></span>
@@ -193,7 +208,10 @@
         <label class="toggle-label"><input type="checkbox" id="modifierHighlightToggle" checked onchange="toggleModifierHighlight(this.checked)" /> Enable tag modifier intensity highlighting</label>
       </div>
       <div class="settings-toggle-row" style="margin-top:10px">
-        <label class="toggle-label"><input type="checkbox" id="tokenCountSettingsToggle" checked onchange="toggleTokenCount(this.checked)" /> Show token counter</label>
+
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="saveMetadataToggle" checked onchange="state.saveMetadataEnabled=this.checked;localStorage.setItem('comfyStudioSaveMeta',this.checked)" /> Embed metadata in saved PNG images</label>
       </div>
       <div class="settings-toggle-row" style="margin-top:10px">
         <label class="toggle-label"><input type="checkbox" id="inpaintToggle" onchange="toggleInpaint(this.checked)" /> ⚗ Enable Inpainting (experimental)</label>
@@ -228,6 +246,7 @@
       <div class="settings-toggle-row">
         <label class="toggle-label"><input type="checkbox" id="notifSoundToggle" onchange="state.notifSoundEnabled=this.checked" /> Play notification sound on completion</label>
       </div>
+
       <button class="hist-btn" onclick="testNotifSound()" style="margin-top:10px;width:auto;padding:6px 16px">▶ Test Sound</button>
     </div>
 
@@ -284,6 +303,28 @@
         <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-varSettings" checked onchange="updateSavePrefs()" /><span>Variation denoise + batch size</span></label>
         <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-enhanceSettings" checked onchange="updateSavePrefs()" /><span>Enhance model + sampler settings</span></label>
       </div>
+
+      <!-- Output Folder Paths -->
+      <div class="save-section-label" style="margin-top:16px">Output Folder</div>
+      <p class="settings-hint">Set a folder path where saved images will be written automatically. Leave blank to use the browser download dialog as usual. Paths are local to the machine running the Studio HTTP server (e.g. <code>C:\ComfyUI_portable\ComfyUIStudio\outputs</code>).</p>
+
+      <label class="field-label" style="margin-top:8px">Default Output Path</label>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+        <input type="text" id="outputPathInput" class="settings-text-input" placeholder="e.g. C:\Users\you\Pictures\ComfyStudio" style="flex:1" oninput="saveOutputPaths()" />
+      </div>
+
+      <label class="field-label">Inpainting Output Path <span style="opacity:.55;font-weight:400">(optional — falls back to default path)</span></label>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+        <input type="text" id="inpaintOutputPathInput" class="settings-text-input" placeholder="Leave blank to use default output path" style="flex:1" oninput="saveOutputPaths()" />
+      </div>
+
+      <div class="settings-toggle-row" style="margin-bottom:14px">
+        <label class="toggle-label">
+          <input type="checkbox" id="autoSaveToggle" onchange="saveOutputPaths()" />
+          Automatically save every generated image to the output folder
+        </label>
+      </div>
+
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="hist-btn" onclick="saveSession()" style="width:auto;padding:6px 16px">💾 Save Now</button>
         <button class="hist-btn danger" onclick="confirmClearSave()" style="width:auto;padding:6px 16px">✕ Clear Saved Data</button>
@@ -309,6 +350,7 @@
       <div class="meta-actions">
         <button class="meta-btn accent" onclick="importMetadata()">Import Metadata</button>
         <button class="meta-btn" onclick="useImg2Img()">image2image</button>
+        <button class="meta-btn" onclick="importAndUseImg2Img()" title="Set as img2img source AND import the selected metadata fields">img2img + metadata</button>
       </div>
     </div>
   </div>
@@ -320,6 +362,26 @@
     <div class="confirm-actions">
       <button class="meta-btn accent" id="confirmOkBtn">Confirm</button>
       <button class="meta-btn" id="confirmCancelBtn" onclick="closeConfirmModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══ WILDCARD EDITOR MODAL ═══ -->
+  <div class="modal-backdrop" id="wildcardEditorBackdrop" onclick="closeWildcardEditor()"></div>
+  <div class="settings-modal wildcard-editor-modal" id="wildcardEditorModal">
+    <div class="settings-header">
+      <span class="settings-title">✦ Edit Wildcard</span>
+      <button class="icon-btn" onclick="closeWildcardEditor()">✕</button>
+    </div>
+    <div style="padding:14px 18px">
+      <label class="field-label">Wildcard Name <span style="opacity:.6;font-weight:400;text-transform:none">(use as <code style="font-family:var(--font-mono);font-size:10px;color:var(--accent-bright)">{{wc:name}}</code> in prompt)</span></label>
+      <input type="text" id="wildcardEditorName" class="settings-text-input" placeholder="e.g. backgrounds, hairstyles…" style="width:100%;margin-bottom:12px" />
+      <label class="field-label">Tags (one per line — a random one will be inserted when you click the wildcard)</label>
+      <textarea id="wildcardEditorTags" class="prompt-ta qtag-ta" rows="8" placeholder="sunny day&#10;stormy night&#10;cherry blossoms&#10;misty mountains…" style="width:100%;margin-top:4px"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="hist-btn" onclick="saveWildcardEditor()" style="width:auto;padding:6px 18px">✓ Save</button>
+        <button class="hist-btn danger" id="wildcardDeleteBtn" onclick="deleteWildcardFromEditor()" style="width:auto;padding:6px 14px;display:none">✕ Delete</button>
+        <button class="hist-btn" onclick="closeWildcardEditor()" style="width:auto;padding:6px 14px;margin-left:auto">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -413,28 +475,64 @@
         <!-- ════ PROMPT AREA ════ -->
         <div class="prompt-area-card pcard">
           <div class="prompt-area">
-            <div class="prompt-tabs-bar">
+              <div class="prompt-tabs-bar">
               <button class="ptab active" onclick="switchPromptTab('positive',this)">✦ Positive</button>
               <button class="ptab" onclick="switchPromptTab('negative',this)">✧ Negative</button>
-              <button class="icon-btn ptab-icon-btn" id="qualityTagsBtn" onclick="toggleQualityTagsPanel()" title="Quality Tags">⚙</button>
+              <button class="ptab notes-ptab" id="notesTab" onclick="switchPromptTab('notes',this)" style="display:none">📝 Notes</button>
+              <button class="icon-btn ptab-icon-btn" id="qualityTagsBtn" onclick="toggleQualityTagsPanel()" title="Prompt Settings">⚙</button>
             </div>
 
             <!-- Quality tags panel -->
             <div class="quality-tags-panel" id="qualityTagsPanel" style="display:none">
-              <div class="quality-tags-row">
-                <label class="qtag-toggle-label">
-                  <input type="checkbox" id="qualityTagsEnabled" />
-                  Prepend quality tags (positive only)
-                </label>
+              <!-- Panel sub-tabs -->
+              <div class="qtag-panel-tabs">
+                <button class="qtag-ptab active" onclick="switchQTagTab('prepend',this)">Prepend Tags</button>
+                <button class="qtag-ptab" onclick="switchQTagTab('wildcards',this)">Wildcards</button>
+                <button class="qtag-ptab" onclick="switchQTagTab('options',this)">Options</button>
               </div>
-              <textarea id="qualityTagsText" class="prompt-ta qtag-ta" placeholder="masterpiece, best quality, …" rows="2"></textarea>
-              <div class="quality-tags-row" style="margin-top:8px">
-                <label class="qtag-toggle-label">
-                  <input type="checkbox" id="negQualityTagsEnabled" />
-                  Prepend negative tags (negative only)
-                </label>
+
+              <!-- Prepend Tags sub-pane -->
+              <div class="qtag-pane active-qtag-pane" id="qtag-pane-prepend">
+                <div class="quality-tags-row">
+                  <label class="qtag-toggle-label">
+                    <input type="checkbox" id="qualityTagsEnabled" />
+                    Prepend quality tags (positive only)
+                  </label>
+                </div>
+                <textarea id="qualityTagsText" class="prompt-ta qtag-ta" placeholder="masterpiece, best quality, …" rows="2"></textarea>
+                <div class="quality-tags-row" style="margin-top:8px">
+                  <label class="qtag-toggle-label">
+                    <input type="checkbox" id="negQualityTagsEnabled" />
+                    Prepend negative tags (negative only)
+                  </label>
+                </div>
+                <textarea id="negQualityTagsText" class="prompt-ta qtag-ta" placeholder="lowres, worst quality, …" rows="2"></textarea>
               </div>
-              <textarea id="negQualityTagsText" class="prompt-ta qtag-ta" placeholder="lowres, worst quality, …" rows="2"></textarea>
+
+              <!-- Wildcards sub-pane -->
+              <div class="qtag-pane" id="qtag-pane-wildcards" style="display:none">
+                <p class="settings-hint" style="margin:0 0 8px">Wildcards work like characters — use <code>{{wc:name}}</code> in your prompt and it will be replaced with a random tag from that wildcard at generation time. Click ✏ to edit, <strong>+</strong> to add new.</p>
+                <div class="wildcard-list" id="wildcardList">
+                  <p class="empty-hint" id="wildcardEmpty">No wildcards yet — click ＋ to add one.</p>
+                </div>
+                <button class="qtag-add-btn" onclick="addWildcard()">＋ New Wildcard</button>
+              </div>
+
+              <!-- Options sub-pane -->
+              <div class="qtag-pane" id="qtag-pane-options" style="display:none">
+                <div class="settings-toggle-row" style="margin-top:4px">
+                  <label class="toggle-label">
+                    <input type="checkbox" id="notesEnabledToggle" onchange="toggleNotesFeature(this.checked)" />
+                    Show Notes panel
+                  </label>
+                </div>
+                <div class="settings-toggle-row" style="margin-top:10px">
+                  <label class="toggle-label">
+                    <input type="checkbox" id="hideCharactersToggle" onchange="toggleHideCharacters(this.checked)" />
+                    Hide Characters card
+                  </label>
+                </div>
+              </div>
             </div>
 
             <!-- Positive prompt with highlight overlay -->
@@ -445,7 +543,7 @@
                 class="prompt-ta pos-ta"
                 placeholder="1girl, loona \(helluva boss\), standing, solo, soft lighting, detailed background…"
                 rows="5"
-                oninput="updateTokenCount();updatePromptHighlight('positive')"
+                oninput="updatePromptHighlight('positive')"
                 onscroll="syncHighlightScroll('positive')"
               ></textarea>
             </div>
@@ -458,21 +556,20 @@
                 class="prompt-ta neg-ta"
                 placeholder="lowres, bad anatomy, bad hands, missing fingers, worst quality, blurry, watermark…"
                 rows="5"
-                oninput="updateTokenCount();updatePromptHighlight('negative')"
+                oninput="updatePromptHighlight('negative')"
                 onscroll="syncHighlightScroll('negative')"
               ></textarea>
             </div>
 
-            <!-- Token count bar -->
-            <div class="token-count-bar" id="tokenCountBar">
-              <label class="token-toggle-label" title="Toggle token counter">
-                <input type="checkbox" id="tokenCountToggle" checked onchange="toggleTokenCount(this.checked)" style="accent-color:var(--accent);width:11px;height:11px;margin:0;cursor:pointer" />
-              </label>
-              <span class="token-label" id="tokenCountInner">Tokens:</span>
-              <span class="token-value" id="tokenCount">0</span>
-              <span class="token-sep" style="color:var(--text-lo);margin:0 2px">/</span>
-              <span class="token-value" id="tokenTotal">75</span>
-              <span class="token-warn" id="tokenWarn"></span>
+            <!-- Notes pane (zero generation impact) -->
+            <div id="promptNotes" class="prompt-pane" style="position:relative">
+              <textarea
+                id="notesTextarea"
+                class="prompt-ta notes-ta"
+                placeholder="Notes have zero impact on any generations — use this space to jot down prompting ideas, model notes, settings to try, or anything else…"
+                rows="5"
+                oninput="saveNotesContent()"
+              ></textarea>
             </div>
 
             <!-- Base image upload (drop target) -->
@@ -503,6 +600,16 @@
                   <button class="paint-tool-btn" onclick="clearActiveMask()" style="font-size:10px;padding:2px 7px">✕ Clear Mask</button>
                   <button class="paint-tool-btn" onclick="openInpaintMenu()" style="font-size:10px;padding:2px 7px">✏ Edit</button>
                 </div>
+
+                <!-- Focused Inpainting mode badge + Full Image toggle -->
+                <div class="focused-inpaint-header">
+                  <span class="focused-inpaint-badge">◈ Focused Inpainting</span>
+                  <label class="fi-toggle-label" title="Fall back to whole-image inpainting (faster for large masks)">
+                    <input type="checkbox" id="inpaintFullImageToggle" onchange="onFullImageToggle()" />
+                    <span class="fi-toggle-text">Full Image</span>
+                  </label>
+                </div>
+
                 <div class="slider-row" style="margin-top:6px">
                   <div class="slider-label-row">
                     <label class="field-label">Inpaint Denoise</label>
@@ -510,21 +617,67 @@
                   </div>
                   <input type="range" id="inpaintDenoiseSlider" min="0" max="1" step="0.01" value="0.85" oninput="syncSlider('inpaintDenoise')" />
                 </div>
-                <div class="slider-row" style="margin-top:4px">
-                  <div class="slider-label-row">
-                    <label class="field-label">Mask Blur</label>
-                    <input type="number" id="inpaintMaskBlurNum" class="num-input" min="0" max="32" step="1" value="4" oninput="syncNum('inpaintMaskBlur')" />
+
+                <!-- Focused-mode controls (hidden in Full Image mode) -->
+                <div id="focusedInpaintControls">
+                  <div class="slider-row" style="margin-top:4px">
+                    <div class="slider-label-row">
+                      <label class="field-label">Context Area</label>
+                      <span class="fi-pct-val" id="inpaintContextVal">10%</span>
+                      <input type="range" id="inpaintContextSlider" min="0" max="30" step="1" value="10" oninput="document.getElementById('inpaintContextVal').textContent=this.value+'%'" style="display:none" />
+                    </div>
+                    <input type="range" id="inpaintContextSlider2" min="0" max="30" step="1" value="10" oninput="document.getElementById('inpaintContextVal').textContent=this.value+'%';document.getElementById('inpaintContextSlider').value=this.value" />
                   </div>
-                  <input type="range" id="inpaintMaskBlurSlider" min="0" max="32" step="1" value="4" oninput="syncSlider('inpaintMaskBlur')" />
+                  <div class="inpaint-options-row" style="margin-top:4px">
+                    <div style="flex:1">
+                      <label class="field-label">Working Res</label>
+                      <div class="sel-wrap">
+                        <select id="inpaintWorkingRes">
+                          <option value="512">512 px</option>
+                          <option value="768">768 px</option>
+                          <option value="1024" selected>1024 px</option>
+                          <option value="1536">1536 px</option>
+                          <option value="2048">2048 px</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style="flex:1">
+                      <label class="field-label">Mask Mode</label>
+                      <div class="sel-wrap">
+                        <select id="inpaintMaskMode">
+                          <option value="masked">Inpaint Masked</option>
+                          <option value="unmasked">Inpaint Unmasked</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="slider-row" style="margin-top:4px">
+                    <div class="slider-label-row">
+                      <label class="field-label">Feather Blend</label>
+                      <input type="number" id="inpaintMaskBlurNum" class="num-input" min="0" max="32" step="1" value="8" oninput="syncNum('inpaintMaskBlur')" />
+                    </div>
+                    <input type="range" id="inpaintMaskBlurSlider" min="0" max="32" step="1" value="8" oninput="syncSlider('inpaintMaskBlur')" />
+                  </div>
                 </div>
-                <div class="inpaint-options-row" style="margin-top:4px">
-                  <div style="flex:1">
-                    <label class="field-label">Mask Mode</label>
-                    <div class="sel-wrap">
-                      <select id="inpaintMaskMode">
-                        <option value="masked">Inpaint Masked Area</option>
-                        <option value="unmasked">Inpaint Unmasked Area</option>
-                      </select>
+
+                <!-- Full Image fallback controls (shown only in Full Image mode) -->
+                <div id="fullImageInpaintControls" style="display:none">
+                  <div class="slider-row" style="margin-top:4px">
+                    <div class="slider-label-row">
+                      <label class="field-label">Mask Blur</label>
+                      <input type="number" id="inpaintMaskBlurFullNum" class="num-input" min="0" max="32" step="1" value="4" oninput="syncNum('inpaintMaskBlurFull')" />
+                    </div>
+                    <input type="range" id="inpaintMaskBlurFullSlider" min="0" max="32" step="1" value="4" oninput="syncSlider('inpaintMaskBlurFull')" />
+                  </div>
+                  <div class="inpaint-options-row" style="margin-top:4px">
+                    <div style="flex:1">
+                      <label class="field-label">Mask Mode</label>
+                      <div class="sel-wrap">
+                        <select id="inpaintMaskModeFullImage">
+                          <option value="masked">Inpaint Masked</option>
+                          <option value="unmasked">Inpaint Unmasked</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -534,26 +687,29 @@
         </div>
 
         <!-- LoRAs card -->
-        <div class="pcard">
-          <div class="pcard-header">
+        <div class="pcard" id="loraCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('loraCard')">
             <span class="pcard-icon">◇</span>
             <h3>LoRAs</h3>
-            <button class="add-btn" onclick="addLora()" title="Add LoRA" style="margin-left:auto">＋</button>
+            <button class="icon-btn" onclick="event.stopPropagation();loadModels()" title="Reload LoRA models" style="margin-left:auto">↻</button>
+            <button class="add-btn" onclick="event.stopPropagation();addLora()" title="Add LoRA">＋</button>
+            <span class="collapse-arrow">▾</span>
           </div>
-          <div class="pcard-body">
+          <div class="pcard-body" id="loraCard-body">
             <div id="loraList" class="lora-list"><p class="empty-hint">No LoRAs — click ＋ to add</p></div>
           </div>
           <div class="card-resize-handle" data-card="loras"></div>
         </div>
 
         <!-- Characters card -->
-        <div class="pcard">
-          <div class="pcard-header">
+        <div class="pcard" id="charactersCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('charactersCard')">
             <span class="pcard-icon">◉</span>
             <h3>Characters</h3>
-            <button class="add-btn" onclick="addCharacter()" title="Add Character" style="margin-left:auto">＋</button>
+            <button class="add-btn" onclick="event.stopPropagation();addCharacter()" title="Add Character" style="margin-left:auto">＋</button>
+            <span class="collapse-arrow">▾</span>
           </div>
-          <div class="pcard-body">
+          <div class="pcard-body" id="charactersCard-body">
             <div id="characterList" class="character-list">
               <p class="empty-hint" id="charEmpty">No characters — click ＋ to add</p>
             </div>
@@ -566,12 +722,13 @@
         </div>
 
         <!-- Resolution card -->
-        <div class="pcard">
-          <div class="pcard-header">
+        <div class="pcard" id="resolutionCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('resolutionCard')">
             <span class="pcard-icon">⬚</span>
             <h3>Resolution</h3>
+            <span class="collapse-arrow" style="margin-left:auto">▾</span>
           </div>
-          <div class="pcard-body">
+          <div class="pcard-body" id="resolutionCard-body">
             <div class="res-selectors-row">
               <div class="sel-wrap" style="flex:1">
                 <select id="resCategorySelect" onchange="onResCategoryChange()">
@@ -603,7 +760,7 @@
                   <label>Width</label>
                   <input type="number" id="customW" value="512" min="64" max="4096" step="64" oninput="updateCustomRes()" />
                 </div>
-                <span class="res-x">×</span>
+                <button class="icon-btn res-flip-btn" onclick="flipCustomRes()" title="Flip width ↔ height">⇄</button>
                 <div class="field-group">
                   <label>Height</label>
                   <input type="number" id="customH" value="512" min="64" max="4096" step="64" oninput="updateCustomRes()" />
@@ -756,9 +913,10 @@
 
       <!-- Image action bar (Upscale / Use as Base / Variations / Enhance) -->
       <div class="image-topbar">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
           <button class="icon-btn back-mode-btn" id="backModeBtn" onclick="exitImageMode()" title="Exit mode" style="display:none">◁</button>
           <span class="img-title" id="imgTitle">Output</span>
+
         </div>
         <button class="save-btn prominent-save" id="saveBtn" onclick="saveImage()" disabled>⬇ Save Image</button>
       </div>
@@ -780,9 +938,19 @@
         </div>
         <img id="outputImg" class="output-img" style="display:none" alt="Generated"
              draggable="true" ondragstart="onOutputImgDragStart(event)" />
+        <!-- Step preview: fills the image area during generation -->
+        <img id="stepPreviewImg" class="step-preview-img" style="display:none" alt="Step preview" />
+        <!-- Generation overlay: only shows when no preview is available yet -->
         <div class="gen-overlay" id="genOverlay" style="display:none">
           <div class="gen-spinner"></div>
           <span id="genOverlayText">Generating…</span>
+        </div>
+        <!-- Progress bar overlay: shown during generation above everything -->
+        <div class="gen-progress-overlay" id="genProgressOverlay" style="display:none">
+          <div class="gen-progress-track">
+            <div class="gen-progress-fill" id="genProgressFill"></div>
+          </div>
+          <span class="gen-progress-text" id="genProgressText"></span>
         </div>
         <!-- Action overlays -->
         <button class="corner-action-btn" id="enhanceGoBtn" style="display:none" onclick="doEnhance()">✦ Enhance</button>
@@ -814,6 +982,28 @@
 
       <!-- Enhance sub-panel -->
       <div class="image-sub-panel" id="enhancePanel" style="display:none">
+
+        <!-- Enhance Prompt (off by default) -->
+        <div class="enhance-prompt-section">
+          <div class="enhance-prompt-header">
+            <label class="toggle-label" style="font-size:11px">
+              <input type="checkbox" id="enhancePromptToggle" onchange="toggleEnhancePrompt(this.checked)" />
+              Use custom prompt for enhance
+            </label>
+          </div>
+          <div id="enhancePromptWrap" style="display:none;margin-top:6px">
+            <label class="field-label">Enhance Positive Prompt</label>
+            <div class="char-prompt-wrap" style="position:relative">
+              <div class="prompt-highlight-layer char-highlight-layer" id="highlightLayerEnhancePos" aria-hidden="true"></div>
+              <textarea id="enhancePrompt" class="prompt-ta qtag-ta" rows="3" placeholder="Leave blank to use main prompt. Add details for the enhanced version…" style="width:100%;margin-bottom:6px"></textarea>
+            </div>
+            <label class="field-label">Enhance Negative Prompt</label>
+            <div class="char-prompt-wrap" style="position:relative">
+              <div class="prompt-highlight-layer char-highlight-layer" id="highlightLayerEnhanceNeg" aria-hidden="true"></div>
+              <textarea id="enhanceNegativePrompt" class="prompt-ta qtag-ta" rows="2" placeholder="Leave blank to use main negative prompt…" style="width:100%"></textarea>
+            </div>
+          </div>
+        </div>
 
         <!-- Enhance Model Card -->
         <div class="enhance-model-card" id="enhanceModelCard">
@@ -1007,6 +1197,7 @@
           <div class="lora-search-dropdown" style="display:none"></div>
           <input type="hidden" class="lora-sel" />
         </div>
+        <button class="icon-btn lora-toggle-btn" onclick="toggleLora(this)" title="Disable">◉</button>
         <button class="icon-btn remove-btn" onclick="removeLora(this)" title="Remove">✕</button>
       </div>
       <div class="lora-strength">
@@ -1014,6 +1205,7 @@
         <input type="range" class="lora-slider" min="-2" max="2" step="0.05" value="1" oninput="loraSliderInput(this)" />
         <input type="number" class="lora-num num-input" min="-2" max="2" step="0.05" value="1" oninput="loraNumInput(this)" />
       </div>
+      <div class="lora-disabled-overlay">DISABLED</div>
     </div>
   </template>
 
@@ -1033,7 +1225,7 @@
       </div>
       <div class="char-prompt-wrap" style="position:relative">
         <div class="prompt-highlight-layer char-highlight-layer" aria-hidden="true"></div>
-        <textarea class="prompt-ta char-ta" placeholder="Describe this character's appearance…" rows="3" oninput="updateCharTokenCount(this)"></textarea>
+        <textarea class="prompt-ta char-ta" placeholder="Describe this character's appearance…" rows="3" ></textarea>
       </div>
      <!-- <div class="char-token-count">Tokens: <span class="char-token-val">0</span></div>-->
       <div class="char-disabled-overlay">DISABLED</div>
@@ -1045,6 +1237,15 @@
     <div class="history-item">
       <img class="history-thumb" alt="History" />
       <button class="history-delete icon-btn" title="Delete">✕</button>
+    </div>
+  </template>
+
+  <!-- History pending item template -->
+  <template id="historyPendingTemplate">
+    <div class="history-item history-pending" id="">
+      <div class="history-pending-inner">
+        <div class="history-pending-spinner"></div>
+      </div>
     </div>
   </template>
 
@@ -1090,6 +1291,7 @@
           <span class="paint-tool-val" id="inpaintBrushSizeVal">20</span>
         </div>
         <button class="paint-tool-btn" id="inpaintEraserBtn" onclick="toggleInpaintEraser()" title="Erase mask">◻ Eraser</button>
+        <button class="paint-tool-btn" id="inpaintGridSnapBtn" onclick="toggleGridSnap()" title="Snap brush to 8×8 VAE latent grid — cleaner mask boundaries for inpainting">⊞ Grid Snap</button>
         <button class="paint-tool-btn" onclick="clearInpaintMask()" title="Clear mask">↺ Clear Mask</button>
       </div>
     </div>
@@ -1104,5 +1306,8 @@
   </div>
 
   <script src="app.js"></script>
+  <!-- ═══ TOAST NOTIFICATIONS ═══ -->
+  <div class="toast-container" id="toastContainer"></div>
+
 </body>
 </html>
