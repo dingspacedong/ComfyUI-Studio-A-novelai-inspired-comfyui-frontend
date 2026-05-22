@@ -2,6 +2,8 @@ This is almost exclusively vibecoded so expect some bugs.
 Place these files in the same folder as your comfyui .bat file
 Make sure to add your comfyui's .bat file's path in the launch.bat
 paste --preview-method "auto" --enable-cors-header "*" into your comfyui's .bat file 
+To launch, use the launch.bat file and it should launch the ComfyUI Studio, Comfyui and ComfyStudio Share (allows you to save images to specified output folders)
+
 
 The zip file contains all of these files as well as the autocomplete folder with the danbooru, e621, and merged csv files
 If you want a notification sound you can paste an mp3 file called notif.mp3 in the same location as these files. (make sure to enable in settings)
