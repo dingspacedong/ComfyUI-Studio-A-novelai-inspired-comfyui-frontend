@@ -88,3 +88,6 @@ Upon launching, ComfyUI Studio connects to your local ComfyUI instance via WebSo
 ### 5. Customizing
 
 * **Themes:** Open **Settings** -> **Themes** to switch between presets or enable "Customize Theme" to adjust individual colors and fonts in real-time. You can export/import these configurations as JSON files.
+
+### Screenshot
+![ui screenshot](UIScreenshot.png)
