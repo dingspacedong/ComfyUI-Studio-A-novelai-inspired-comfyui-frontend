@@ -1,4 +1,6 @@
 You can place ComfyUI Studio anywhere you like. Do not remove any files from the main folder, including the autocomplete folder.
+Before launching make sure you paste these commands in your comfyui run .bat file.
+ --preview-method "auto" --enable-cors-header "*"
 
 To launch, open launch.bat. The first time you run it, you'll be prompted to enter the path to your ComfyUI .bat file. 
 This is the one you normally use to start ComfyUI. Enter the full path to the file itself, not just the folder it's in. 
