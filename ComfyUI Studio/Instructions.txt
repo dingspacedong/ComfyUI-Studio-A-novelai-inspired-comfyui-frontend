@@ -1,0 +1,15 @@
+You can place ComfyUI Studio anywhere you like. Do not remove any files from the main folder, including the autocomplete folder.
+
+To launch, open launch.bat. The first time you run it, you'll be prompted to enter the path to your ComfyUI .bat file. 
+This is the one you normally use to start ComfyUI. Enter the full path to the file itself, not just the folder it's in. 
+It will then open ComfyUI Studio and ComfyUI in separate tabs.
+As long as all files are intact and the path is correct, everything should work from there. Check the Help tab in Settings if you run into any issues.
+
+Notification sound: To play a sound when a generation finishes, place an MP3 named notif.mp3 in the root folder of this project (thesame folder as app.js and index.html, etc.) then enable it in Settings.
+
+Output folder: An output folder is included but disabled by default. You can set any folder as your output path in Settings.
+
+A common issue that I've found is that you are using the wrong VAE, so be sure that you have the right VAE selected for your model.
+
+Experimental features: Inpainting, IP-Adapter (NOT TESTED), ControlNet (LIMITED TESTING), Comparison Grid, and the Caption tool are all disabled by default. Enable whichever you need under Settings → Experimental. 
+The captions require custom nodes — see the Help tab for setup instructions for each one.
