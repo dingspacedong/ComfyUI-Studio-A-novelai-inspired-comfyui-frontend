@@ -1,0 +1,2161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ComfyUI Studio</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&family=JetBrains+Mono:wght@300;400;500&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="bg-layer"></div>
+  <div class="noise-overlay"></div>
+  <!-- Bubble layer: only visible under [data-theme="ocean"], ignored by all other themes -->
+  <div class="bubble-layer" aria-hidden="true">
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+    <div class="bbl"></div><div class="bbl"></div><div class="bbl"></div>
+  </div>
+
+  <!-- ═══ SETTINGS MODAL ═══ -->
+  <div class="modal-backdrop" id="settingsBackdrop" onclick="closeSettings()"></div>
+  <div class="settings-modal" id="settingsModal">
+    <div class="settings-header">
+      <span class="settings-title">⚙ Settings</span>
+      <button class="icon-btn" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="settings-tabs">
+      <button class="stab active" onclick="switchSettingsTab('themes',this)">Themes</button>
+      <button class="stab" onclick="switchSettingsTab('generation',this)">Generation</button>
+      <button class="stab" onclick="switchSettingsTab('autocomplete',this)">Tag Autocomplete</button>
+      <button class="stab" onclick="switchSettingsTab('notification',this)">Notification</button>
+      <button class="stab" onclick="switchSettingsTab('marbles',this)">Marbles</button>
+      <button class="stab" onclick="switchSettingsTab('save',this)">Save</button>
+      <button class="stab" onclick="switchSettingsTab('output',this)">Output</button>
+      <button class="stab" onclick="switchSettingsTab('experimental',this)">⚗ Experimental</button>
+      <button class="stab" onclick="switchSettingsTab('share',this)">⇪ Share</button>
+      <button class="stab" onclick="switchSettingsTab('help',this)">Help</button>
+    </div>
+
+    <!-- Themes Tab -->
+    <div class="stab-pane active-stab" id="stab-themes">
+      <p class="settings-hint">Select a theme below, or customize colors and fonts.</p>
+      <div class="theme-grid">
+        <button class="theme-btn active" data-theme="novelai-dark" onclick="applyTheme('novelai-dark',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0c0d14,#8b9ef5)"></span>
+          Dark
+        </button>
+        <button class="theme-btn" data-theme="novelai-light" onclick="applyTheme('novelai-light',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#fdf8f2,#3a9e82)"></span>
+          Light
+        </button>
+        <button class="theme-btn" data-theme="nai-blue" onclick="applyTheme('nai-blue',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0d0e1a,#7c6ff0)"></span>
+          NAI Blue
+        </button>
+        <button class="theme-btn" data-theme="nai-light" onclick="applyTheme('nai-light',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#edeeff,#5a50d8)"></span>
+          NAI Light
+        </button>
+		<button class="theme-btn" data-theme="subtle-terminal" onclick="applyTheme('subtle-terminal', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#121212,#00ff46)"></span>
+		  Subtle Terminal
+		</button>
+		<button class="theme-btn" data-theme="pastel" onclick="applyTheme('pastel', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#fce4ec,#ba68c8)"></span>
+		  Pink Pastel
+		</button>
+		<button class="theme-btn" data-theme="sparkledog" onclick="applyTheme('sparkledog', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#18094a,#099cd6)"></span>
+		  SparkleDog
+		</button>
+		<button class="theme-btn" data-theme="cookie" onclick="applyTheme('cookie', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#f5e6d3,#a0522d)"></span>
+		  Cookie
+		</button>
+		<button class="theme-btn" data-theme="suspicious" onclick="applyTheme('suspicious', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#0d0d0a,#ffd700)"></span>
+		  Suspicious
+		</button>
+		<button class="theme-btn" data-theme="multicolored-pastel" onclick="applyTheme('multicolored-pastel', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#fdf6e3,#6c71c4)"></span>
+		  Pastel
+		</button>
+		<button class="theme-btn" data-theme="ocean" onclick="applyTheme('ocean', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#051520,#50d0e0)"></span>
+		  Ocean
+		</button>
+		<button class="theme-btn" data-theme="retro" onclick="applyTheme('retro', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#d4d0c8,#0054e3)"></span>
+		  Retro
+		</button>
+		<button class="theme-btn" data-theme="retro-2" onclick="applyTheme('retro-2', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#ece9d8,#2873c5)"></span>
+		  Retro 2
+		</button>
+		<button class="theme-btn" data-theme="win10" onclick="applyTheme('win10', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#202020,#0078d4)"></span>
+		  Win 10
+		</button>
+		<button class="theme-btn" data-theme="koi" onclick="applyTheme('koi', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#1a1005,#ff8040)"></span>
+		  Koi
+		</button>
+		<button class="theme-btn" data-theme="beach" onclick="applyTheme('beach', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#d4e5f0,#0096c8)"></span>
+		  Beach
+		</button>
+        <button class="theme-btn" data-theme="frog" onclick="applyTheme('frog',this)">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0f1f0a,#7ec850)"></span>
+          Frog
+        </button>
+		<button class="theme-btn" data-theme="sky" onclick="applyTheme('sky', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#e0f7fa,#1976d2)"></span>
+		  Sky
+		</button>
+		<button class="theme-btn" data-theme="hell" onclick="applyTheme('hell', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#1a0505,#ff4500)"></span>
+		  Hell
+		</button>
+		<button class="theme-btn" data-theme="bubblegum" onclick="applyTheme('bubblegum', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#fff0f5,#db7093)"></span>
+		  Bubblegum
+		</button>
+		<button class="theme-btn" data-theme="frutiger-aero-dark" onclick="applyTheme('frutiger-aero-dark', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#051020,#40c0ff)"></span>
+		  Aero Dark
+		</button>
+		<button class="theme-btn" data-theme="frutiger-aero" onclick="applyTheme('frutiger-aero', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#60a0f0,#ffffff)"></span>
+		  Frutiger Aero
+		</button>
+		<button class="theme-btn" data-theme="grapesoda" onclick="applyTheme('grapesoda', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#0e0e12,#c080ff)"></span>
+		  Grape Soda
+		</button>
+		<button class="theme-btn" data-theme="ikea" onclick="applyTheme('ikea', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#004e98,#ffd232)"></span>
+		  Ikea
+		</button>
+		<button class="theme-btn" data-theme="leprechaun" onclick="applyTheme('leprechaun', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#0c1a0a,#d4a820)"></span>
+		  Leprechaun
+		</button>
+		<button class="theme-btn" data-theme="blender" onclick="applyTheme('blender', this)">
+		  <span class="theme-swatch" style="background:linear-gradient(135deg,#252525,#f47f20)"></span>
+		  Blender
+		</button>
+      </div>
+      <!-- Theme customizer -->
+            <div class="theme-customize-section">
+        <div class="theme-customize-header">
+          <span class="theme-customize-title">⚙ Customize Theme</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <label class="toggle-label" style="margin-right:4px" title="When on, custom colors/fonts override the selected theme">
+              <input type="checkbox" id="customThemeToggle" onchange="toggleCustomTheme(this.checked)" style="accent-color:var(--accent);width:14px;height:14px" />
+              Enable
+            </label>
+            <button class="hist-btn" onclick="resetThemeToDefault()" style="width:auto;padding:5px 12px">↺ Reset</button>
+            <button class="hist-btn" onclick="exportTheme()" style="width:auto;padding:5px 12px">⬇ Export</button>
+            <button class="hist-btn" onclick="document.getElementById('importThemeFile').click()" style="width:auto;padding:5px 12px">⬆ Import</button>
+            <input type="file" id="importThemeFile" accept=".json" style="display:none" onchange="importTheme(event)" />
+          </div>
+        </div>
+        <div id="customThemeControls" style="display:none">
+        <div class="theme-color-grid">
+          <div class="theme-color-section-label">Backgrounds</div>
+          <div class="theme-color-row"><label class="theme-color-label">Background</label><input type="color" class="theme-color-input" id="tc-bg-void" oninput="applyCustomThemeVar('--bg-void',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Panel BG</label><input type="color" class="theme-color-input" id="tc-bg-panel" oninput="applyCustomThemeVar('--bg-panel',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Card BG</label><input type="color" class="theme-color-input" id="tc-bg-card" oninput="applyCustomThemeVar('--bg-card',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Input BG</label><input type="color" class="theme-color-input" id="tc-bg-input" oninput="applyCustomThemeVar('--bg-input',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Elevated BG</label><input type="color" class="theme-color-input" id="tc-bg-elevated" oninput="applyCustomThemeVar('--bg-elevated',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Overlay BG</label><input type="color" class="theme-color-input" id="tc-bg-overlay" oninput="applyCustomThemeVar('--bg-overlay',this.value)" /></div>
+
+          <div class="theme-color-section-label">Borders</div>
+          <div class="theme-color-row"><label class="theme-color-label">Border Faint</label><input type="color" class="theme-color-input" id="tc-border-faint" oninput="applyCustomThemeVarRgba('--border-faint',this.value,0.10)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Border Mid</label><input type="color" class="theme-color-input" id="tc-border-mid" oninput="applyCustomThemeVarRgba('--border-mid',this.value,0.18)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Border Accent</label><input type="color" class="theme-color-input" id="tc-border-accent" oninput="applyCustomThemeVarRgba('--border-accent',this.value,0.32)" /></div>
+
+          <div class="theme-color-section-label">Accent</div>
+          <div class="theme-color-row"><label class="theme-color-label">Accent</label><input type="color" class="theme-color-input" id="tc-accent" oninput="applyCustomThemeVar('--accent',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Accent Bright</label><input type="color" class="theme-color-input" id="tc-accent-bright" oninput="applyCustomThemeVar('--accent-bright',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Accent Dim</label><input type="color" class="theme-color-input" id="tc-accent-dim" oninput="applyCustomThemeVarRgba('--accent-dim',this.value,0.45)" /></div>
+
+          <div class="theme-color-section-label">Status Colors</div>
+          <div class="theme-color-row"><label class="theme-color-label">Positive</label><input type="color" class="theme-color-input" id="tc-positive" oninput="applyCustomThemeVar('--positive',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Negative</label><input type="color" class="theme-color-input" id="tc-negative" oninput="applyCustomThemeVar('--negative',this.value)" /></div>
+
+          <div class="theme-color-section-label">Text</div>
+          <div class="theme-color-row"><label class="theme-color-label">Text Hi</label><input type="color" class="theme-color-input" id="tc-text-hi" oninput="applyCustomThemeVar('--text-hi',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Text Mid</label><input type="color" class="theme-color-input" id="tc-text-mid" oninput="applyCustomThemeVar('--text-mid',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Text Lo</label><input type="color" class="theme-color-input" id="tc-text-lo" oninput="applyCustomThemeVar('--text-lo',this.value)" /></div>
+
+          <div class="theme-color-section-label">Generate Button</div>
+          <div class="theme-color-row"><label class="theme-color-label">Btn Gradient From</label><input type="color" class="theme-color-input" id="tc-gen-btn" oninput="applyCustomThemeVar('--gen-btn-from',this.value)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Btn Gradient To</label><input type="color" class="theme-color-input" id="tc-gen-btn-to" oninput="applyCustomThemeVar('--gen-btn-to',this.value)" /></div>
+
+          <div class="theme-color-section-label">Tag Modifiers</div>
+          <div class="theme-color-row"><label class="theme-color-label">Modifier Low</label><input type="color" class="theme-color-input" id="tc-modifier-low" oninput="applyCustomThemeVarRgba('--modifier-low',this.value,0.35)" /></div>
+          <div class="theme-color-row"><label class="theme-color-label">Modifier High</label><input type="color" class="theme-color-input" id="tc-modifier-high" oninput="applyCustomThemeVarRgba('--modifier-high',this.value,0.35)" /></div>
+        </div>
+        <div class="theme-font-row">
+          <label class="theme-color-label">Display Font</label>
+          <input type="text" class="theme-font-input" id="tc-font-disp" placeholder="Crimson Pro" oninput="applyCustomFontVar('--font-disp',this.value,'Georgia, serif')" />
+        </div>
+        <div class="theme-font-row">
+          <label class="theme-color-label">UI Font</label>
+          <input type="text" class="theme-font-input" id="tc-font-ui" placeholder="Nunito Sans" oninput="applyCustomFontVar('--font-ui',this.value,'sans-serif')" />
+        </div>
+        </div><!-- /customThemeControls -->
+      </div>
+    </div>
+
+    <!-- Generation Tab -->
+    <div class="stab-pane" id="stab-generation">
+      <label class="field-label">V-Prediction</label>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="vPredictionToggle" onchange="state.vPrediction=this.checked" /> Enable v_prediction (zsnr/v-pred scheduling)</label>
+      </div>
+      <label class="field-label" style="margin-top:14px">RescaleCFG</label>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="rescaleCFGToggle" onchange="onRescaleCFGToggle()" /> Enable RescaleCFG</label>
+      </div>
+      <div id="rescaleCFGSliderWrap" class="slider-row" style="display:none;margin-top:8px">
+        <div class="slider-label-row">
+          <label class="field-label">Rescale Multiplier</label>
+          <input type="number" id="rescaleCFGNum" class="num-input" min="0" max="1" step="0.01" value="0.7" oninput="syncNum('rescaleCFG')" />
+        </div>
+        <input type="range" id="rescaleCFGSlider" min="0" max="1" step="0.01" value="0.7" oninput="syncSlider('rescaleCFG')" />
+      </div>
+      <label class="field-label" style="margin-top:14px">Generate Variations</label>
+      <div class="slider-row">
+        <div class="slider-label-row">
+          <label class="field-label">Variation Denoise</label>
+          <input type="number" id="varDenoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.6" oninput="syncNum('varDenoise')" />
+        </div>
+        <input type="range" id="varDenoiseSlider" min="0" max="1" step="0.01" value="0.6" oninput="syncSlider('varDenoise')" />
+      </div>
+      <div class="slider-row" style="margin-top:8px">
+        <div class="slider-label-row">
+          <label class="field-label">Variation Batch Size</label>
+          <input type="number" id="varBatchNum" class="num-input small" min="1" max="8" value="1" oninput="syncNum('varBatch')" />
+        </div>
+        <input type="range" id="varBatchSlider" min="1" max="8" value="1" oninput="syncSlider('varBatch')" />
+      </div>
+    </div>
+
+    <!-- Autocomplete Tab -->
+    <div class="stab-pane" id="stab-autocomplete">
+      <p class="settings-hint">Place CSV files inside a folder called <code>comfystudio autocomplete</code> next to this page. Local users: files are detected automatically. Remote users: use drag-and-drop or click the zone below — your tags are saved and will restore automatically.</p>
+      <label class="field-label">Autocomplete Source</label>
+      <div class="sel-wrap">
+        <select id="autocompleteSource" onchange="loadAutocompleteSource()">
+          <option value="none">None</option>
+        </select>
+        <button class="icon-btn" onclick="scanAutoCompleteFolder()" title="Scan for CSV files">↻</button>
+      </div>
+      <p class="settings-hint" style="margin-top:8px">Or drag-and-drop a CSV file here:</p>
+      <div class="csv-drop-zone" id="csvDropZone">Drop CSV file here</div>
+      <div id="autocompleteStatus" class="settings-hint" style="margin-top:6px"></div>
+      <label class="field-label" style="margin-top:16px">Tag Formatting</label>
+      <div class="settings-toggle-row" style="margin-top:6px">
+        <label class="toggle-label"><input type="checkbox" id="acEscapeParensToggle" onchange="state.acEscapeParens=this.checked;saveAcSettings()" /> Auto-escape parentheses — add <code>\</code> before <code>(</code> and <code>)</code> in completed tags</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:8px">
+        <label class="toggle-label"><input type="checkbox" id="acUnderscoreToggle" onchange="state.acReplaceUnderscores=this.checked;saveAcSettings()" /> Replace underscores with spaces in completed tags</label>
+      </div>
+    </div>
+
+    <!-- Notification Tab -->
+    <div class="stab-pane" id="stab-notification">
+      <p class="settings-hint">Play a sound after each generation completes. Place <code>notif.mp3</code> in the same folder as the HTML/JS/CSS files.</p>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="notifSoundToggle" onchange="state.notifSoundEnabled=this.checked" /> Play notification sound on completion</label>
+      </div>
+
+      <button class="hist-btn" onclick="testNotifSound()" style="margin-top:10px;width:auto;padding:6px 16px">▶ Test Sound</button>
+    </div>
+
+    <!-- Marbles Tab -->
+    <div class="stab-pane" id="stab-marbles">
+      <p class="settings-hint">Marbles are a fun optional fake currency. Enable them to track the "cost" of generations.</p>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="marblesToggle" onchange="toggleMarbles(this.checked)" /> Enable Marbles currency</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px;gap:8px;align-items:center">
+        <label class="field-label" style="margin:0">Add Marbles:</label>
+        <input type="number" id="marblesAddInput" class="num-input" min="0" value="100" style="width:80px" />
+        <button class="hist-btn" onclick="addMarbles()" style="width:auto;padding:5px 12px">+ Add</button>
+      </div>
+      <p class="settings-hint" style="margin-top:10px">Costs: Small=1 · Normal=5 · Large=25 · Wallpaper=35 · Upscale=10 · Enhance=30 · Variations=30</p>
+    </div>
+
+    <!-- Save Tab -->
+    <div class="stab-pane" id="stab-save">
+      <p class="settings-hint">Choose what gets saved between sessions. Everything checked here is stored in your browser's localStorage and restored on the next page load.</p>
+      <div class="save-options-grid">
+        <div class="save-section-label">Prompts &amp; Characters</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-positivePrompt" checked onchange="updateSavePrefs()" /><span>Positive prompt</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-negativePrompt" checked onchange="updateSavePrefs()" /><span>Negative prompt</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-qualityTags" checked onchange="updateSavePrefs()" /><span>Quality tags (text + enabled state)</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-characters" checked onchange="updateSavePrefs()" /><span>Characters (keywords + prompts)</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Model &amp; LoRAs</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-modelType" checked onchange="updateSavePrefs()" /><span>Model type (checkpoint / diffusion)</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-checkpointSelect" checked onchange="updateSavePrefs()" /><span>Selected checkpoint</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-diffusionSelect" checked onchange="updateSavePrefs()" /><span>Selected diffusion / UNET model</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-vaeSelect" checked onchange="updateSavePrefs()" /><span>Selected VAE</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-teSelect" checked onchange="updateSavePrefs()" /><span>Text encoder + encoder type</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-loras" checked onchange="updateSavePrefs()" /><span>Active LoRAs + strengths</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Sampler</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-sampler" checked onchange="updateSavePrefs()" /><span>Sampler &amp; scheduler</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-steps" checked onchange="updateSavePrefs()" /><span>Steps</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-cfg" checked onchange="updateSavePrefs()" /><span>CFG scale</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-denoise" checked onchange="updateSavePrefs()" /><span>Denoise strength</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-batch" checked onchange="updateSavePrefs()" /><span>Batch size</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-seed" checked onchange="updateSavePrefs()" /><span>Seed value + lock state</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Resolution</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-resolution" checked onchange="updateSavePrefs()" /><span>Resolution category, orientation &amp; standard</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-customRes" checked onchange="updateSavePrefs()" /><span>Custom resolution W × H</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Connection</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-comfyUrl" checked onchange="updateSavePrefs()" /><span>ComfyUI server URL</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Img2Img</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-img2imgDenoise" checked onchange="updateSavePrefs()" /><span>Img2img denoise strength</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Generation Settings</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-vPrediction" checked onchange="updateSavePrefs()" /><span>V-Prediction toggle</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-rescaleCFG" checked onchange="updateSavePrefs()" /><span>RescaleCFG toggle + multiplier</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-varSettings" checked onchange="updateSavePrefs()" /><span>Variation denoise + batch size</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-enhanceSettings" checked onchange="updateSavePrefs()" /><span>Enhance model + sampler settings</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">Experimental Features</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-experimentalToggles" checked onchange="updateSavePrefs()" /><span>Enabled experimental features (Inpaint, IP-Adapter, ControlNet, Caption, Comparison Grid)</span></label>
+
+        <div class="save-section-label" style="margin-top:10px">UI State</div>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-theme" checked onchange="updateSavePrefs()" /><span>Selected theme</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-panelCollapse" checked onchange="updateSavePrefs()" /><span>Panel collapse / expand state</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-notes" checked onchange="updateSavePrefs()" /><span>Notes panel (enabled state + content)</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-wildcards" checked onchange="updateSavePrefs()" /><span>Wildcards</span></label>
+        <label class="save-toggle-row"><input type="checkbox" class="save-chk" id="save-promptLibrary" checked onchange="updateSavePrefs()" /><span>Prompt library entries</span></label>
+
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="hist-btn" onclick="saveSession()" style="width:auto;padding:6px 16px">💾 Save Now</button>
+        <button class="hist-btn" onclick="exportSettings()" style="width:auto;padding:6px 16px">⬇ Export Settings</button>
+        <button class="hist-btn" onclick="document.getElementById('importSettingsFile').click()" style="width:auto;padding:6px 16px">⬆ Import Settings</button>
+        <input type="file" id="importSettingsFile" accept=".json" style="display:none" onchange="importSettings(event)" />
+        <button class="hist-btn danger" onclick="confirmClearSave()" style="width:auto;padding:6px 16px">✕ Clear Saved Data</button>
+      </div>
+      <p class="settings-hint" id="saveStatusHint" style="margin-top:8px"></p>
+    </div>
+
+    <!-- ═══ Output Tab ═══ -->
+    <div class="stab-pane" id="stab-output">
+      <p class="settings-hint">Set a folder path where saved images will be written automatically. Leave blank to use the browser download dialog as usual. Paths are local to the machine running the Studio HTTP server (e.g. <code>C:\ComfyUI_portable\ComfyUIStudio\outputs</code>).</p>
+
+      <label class="field-label" style="margin-top:8px">Default Output Path</label>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+        <input type="text" id="outputPathInput" class="settings-text-input" placeholder="e.g. C:\Users\you\Pictures\ComfyStudio" style="flex:1" oninput="saveOutputPaths()" />
+      </div>
+
+      <label class="field-label">Inpainting Output Path <span style="opacity:.55;font-weight:400">(optional — falls back to default path)</span></label>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+        <input type="text" id="inpaintOutputPathInput" class="settings-text-input" placeholder="Leave blank to use default output path" style="flex:1" oninput="saveOutputPaths()" />
+      </div>
+
+      <div class="settings-toggle-row" style="margin-bottom:14px">
+        <label class="toggle-label">
+          <input type="checkbox" id="autoSaveToggle" onchange="saveOutputPaths()" />
+          Automatically save every generated image to the output folder
+        </label>
+      </div>
+    </div>
+
+    <!-- ═══ Experimental Tab ═══ -->
+    <div class="stab-pane" id="stab-experimental">
+      <p class="settings-hint" style="margin-bottom:14px">Experimental features may change or have rough edges. Toggle them on to add them to your workflow.</p>
+
+      <label class="field-label">UI</label>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="modifierHighlightToggle" checked onchange="toggleModifierHighlight(this.checked)" /> Enable tag modifier intensity highlighting</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="saveMetadataToggle" checked onchange="state.saveMetadataEnabled=this.checked;localStorage.setItem('comfyStudioSaveMeta',this.checked)" /> Embed metadata in saved PNG images</label>
+        <label class="toggle-label" id="saveLorasMetaRow"><input type="checkbox" id="saveLorasMetaToggle" checked onchange="state.saveLorasMeta=this.checked;localStorage.setItem('comfyStudioSaveLorasMeta',this.checked)" />  ↳ Include active LoRAs + strengths in metadata</label>
+      </div>
+
+      <label class="field-label" style="margin-top:16px">Generation</label>
+      <div class="settings-toggle-row">
+        <label class="toggle-label"><input type="checkbox" id="inpaintToggle" onchange="toggleInpaint(this.checked)" /> Enable Inpainting — adds mask-based inpainting to img2img</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="cgToggle" /> Enable Comparison Grid — run multiple sampler/prompt combos side-by-side</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="ipAdapterToggle" onchange="toggleIPAdapter(this.checked)" /> Enable IP-Adapter — condition generation on a reference image</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="controlNetToggle" onchange="toggleControlNet(this.checked)" /> Enable ControlNet — condition generation on a control image (depth, canny, pose…)</label>
+      </div>
+      <div class="settings-toggle-row" style="margin-top:10px">
+        <label class="toggle-label"><input type="checkbox" id="captionToggle" onchange="toggleCaptionFeature(this.checked)" /> Enable Image Captioning — tag or describe any image using WD14 or JoyCaption</label>
+      </div>
+    </div>
+
+    <!-- ═══ Help Tab ═══ -->
+    <div class="stab-pane" id="stab-help">
+      <p class="settings-hint" style="margin-bottom:14px">Common questions and answers. Click any question to expand it.</p>
+
+      <div class="help-accordion">
+
+        <!-- ─────────────────────────────────────────
+             HOW TO ADD YOUR OWN QUESTIONS:
+
+             Copy the block below and paste it inside
+             the <div class="help-accordion"> above
+             the closing </div>.
+
+             Change the text inside <summary> for the
+             question, and put your answer inside the
+             <div class="help-answer"> block.
+
+             HTML is supported inside help-answer so
+             you can use <b>, <code>, <br>, <ul> etc.
+
+        <details class="help-item">
+          <summary class="help-q">Your question goes here?</summary>
+          <div class="help-answer">
+            Your answer goes here. You can use <b>bold</b>,
+            <code>inline code</code>, or anything else.<br><br>
+            Multiple paragraphs work fine too.
+          </div>
+        </details>
+        ───────────────────────────────────────── -->
+
+        <details class="help-item">
+          <summary class="help-q">Why can't I generate? / My generation fails immediately</summary>
+          <div class="help-answer">
+            There are a few common causes:<br><br>
+            <b>• Wrong or missing VAE</b> — The most frequent cause. If your VAE dropdown is set to
+            <code>Automatic (embedded)</code> ComfyUI cannot resolve a VAE and the workflow will fail
+            with a validation error. Always pick the actual <code>.safetensors</code> VAE file that
+            matches your model (e.g. <code>vae-ft-mse-840000.safetensors</code> for SD 1.5,
+            <code>sdxl_vae.safetensors</code> for SDXL).<br><br>
+            <b>• ComfyUI is not running</b> — Make sure ComfyUI is started and the server URL in
+            settings matches (default is <code>http://127.0.0.1:8188</code>). The status dot in the
+            top bar should be green.<br><br>
+            <b>• Wrong model type selected</b> — If you have a checkpoint loaded but the model type
+            is set to Diffusion / UNET (or vice versa), the workflow will be wired incorrectly.
+            Match the model type toggle to the model you're using.<br><br>
+            <b>• Missing text encoder</b> — FLUX and some SDXL models require a separate text encoder.
+            If the TE dropdown is blank or set to <code>none</code> when your model needs one,
+            generation will fail.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I connect to ComfyUI?</summary>
+          <div class="help-answer">
+            Start ComfyUI normally. By default it runs at <code>http://127.0.0.1:8188</code>.<br><br>
+            Open Settings → Generation and make sure the <b>ComfyUI URL</b> field matches. The
+            status indicator in the top bar will turn green once a connection is established.<br><br>
+            If you're running ComfyUI on a different machine or port, update the URL to match
+            (e.g. <code>http://192.168.1.50:8188</code>).
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">Where do my generated images go?</summary>
+          <div class="help-answer">
+            By default images are downloaded through the browser's normal download dialog and saved
+            wherever your browser saves downloads.<br><br>
+            To automatically save images to a specific folder, go to <b>Settings → Output</b> and
+            enter a folder path in the <b>Default Output Path</b> field. This requires the Studio
+            to be served from a local HTTP server that has write access to that path.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I add LoRAs?</summary>
+          <div class="help-answer">
+            LoRA files (<code>.safetensors</code>) go in your ComfyUI <code>models/loras/</code>
+            folder. Once ComfyUI is running and connected, click <b>+ Add LoRA</b> in the LoRA
+            section of the left panel. Use the search box to find your LoRA by name, then adjust
+            the strength slider. You can add multiple LoRAs and they stack.<br><br>
+            If the LoRA list is empty, try refreshing the page while ComfyUI is running so the
+            model list reloads.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I set up Image Captioning (Tags mode — WD14)?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Generates booru-style tags from an image. Great for anime and illustrated content.<br><br>
+
+            <b>Step 1 — Install the custom node</b><br>
+            You need <b>ComfyUI-Custom-Scripts</b> by pythongosssss, which provides both the WD14 Tagger node and the ShowText node the workflow depends on.<br><br>
+            Open a terminal in your ComfyUI folder and run:<br>
+            <code>cd custom_nodes</code><br>
+            <code>git clone https://github.com/pythongosssss/ComfyUI-Custom-Scripts</code><br><br>
+            Then restart ComfyUI.<br><br>
+
+            <b>Step 2 — Enable captioning in ComfyUI Studio</b><br>
+            Go to <b>Settings → ⚗ Experimental → Enable Image Captioning</b>. A Caption card will appear in the left panel.<br><br>
+
+            <b>Step 3 — Caption an image</b><br>
+            Upload an image using the drop zone in the Caption card, or click <b>Use Current Image</b> to caption your last generated image. Make sure the mode toggle is set to <b>Tags</b>, then click <b>Run</b>.<br><br>
+            The tagger model downloads automatically on first use (a few hundred MB). Subsequent runs are instant.<br><br>
+            <b>Threshold</b> controls confidence cutoff — lower values give more tags, higher values give only the most certain ones.<br><br>
+
+            <b>Step 4 — Send to prompt</b><br>
+            Click <b>Send to Prompt</b> to append the tags to your positive prompt. Underscores are replaced with spaces and parentheses are escaped automatically.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I set up Image Captioning (Natural Language mode — JoyCaption)?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Generates a natural language description of an image using a large vision-language model. Useful for writing training captions or detailed prompts.<br><br>
+
+            <b>Step 1 — Install the custom node</b><br>
+            You need the <b>joycaption_comfyui</b> node by fpgaminer. Open a terminal in your ComfyUI folder and run:<br>
+            <code>cd custom_nodes</code><br>
+            <code>git clone https://github.com/fpgaminer/joycaption_comfyui</code><br><br>
+            You also need <b>ComfyUI-Custom-Scripts</b> installed (see Tags mode setup above) as it provides a required output node used by the workflow.<br><br>
+            Restart ComfyUI after installing both.<br><br>
+
+            <b>Step 2 — Download the JoyCaption model</b><br>
+            The model is not included with the node and must be downloaded separately. First install the HuggingFace CLI if you don't have it already:<br>
+            <code>pip install huggingface_hub</code><br><br>
+            Then download the model into your ComfyUI models folder. Replace the path with your actual ComfyUI install location:<br>
+            <code>huggingface-cli download fancyfeast/llama-joycaption-alpha-two-hf-llava --local-dir "C:\ComfyUI\models\LLavacheckpoints\llama-joycaption-alpha-two-hf-llava"</code><br><br>
+            This is roughly 17GB so it will take some time. If the download is interrupted, re-run the exact same command and it will resume where it left off.<br><br>
+            When finished, your <code>LLavacheckpoints</code> folder should contain a subfolder named <code>llama-joycaption-alpha-two-hf-llava</code> with many files inside it. Do not move or rename anything inside that folder.<br><br>
+
+            <b>Step 3 — Enable captioning in ComfyUI Studio</b><br>
+            Go to <b>Settings → ⚗ Experimental → Enable Image Captioning</b>. A Caption card will appear in the left panel. Switch the mode toggle to <b>Natural Language</b>.<br><br>
+
+            <b>Step 4 — Caption an image</b><br>
+            Upload an image using the drop zone, or click <b>Use Current Image</b> to caption your last generated image. Choose a <b>Caption Type</b> and <b>Caption Length</b>, then click <b>Run</b>. The first run will take a moment as the model loads into VRAM.<br><br>
+
+            <b>Memory Mode</b> controls VRAM usage — pick based on your GPU:<br>
+            &nbsp;&nbsp;• <b>Default</b> — full BF16 precision, best quality, needs ~17GB VRAM<br>
+            &nbsp;&nbsp;• <b>Balanced (8-bit)</b> — quantized, good quality, needs ~8GB VRAM<br>
+            &nbsp;&nbsp;• <b>Maximum Savings (4-bit)</b> — heavily quantized, acceptable quality, needs ~4GB VRAM<br><br>
+
+            <b>Caption Type</b> controls the output style. Descriptive gives flowing prose. Danbooru/e621/Booru tag list modes output formatted tags. Stable Diffusion Prompt, Art Critic, Social Media Post and others are also available.<br><br>
+
+            <b>Step 5 — Send to prompt</b><br>
+            Click <b>Send to Prompt</b> to append the caption to your positive prompt. Underscores are replaced with spaces and parentheses are escaped automatically for ComfyUI prompt syntax.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">(NOT TESTED) How do I set up IP-Adapter (condition on a reference image)?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Lets you provide a reference image that guides the style, composition, or subject of your generation — without putting anything in the text prompt.<br><br>
+
+            <b>Step 1 — Install the custom node</b><br>
+            You need <b>ComfyUI_IPAdapter_plus</b> by cubiq:<br>
+            <code>cd custom_nodes</code><br>
+            <code>git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus</code><br>
+            Restart ComfyUI after installing.<br><br>
+
+            <b>Step 2 — Download the model files</b><br>
+            You need two files: an <b>IP-Adapter model</b> and a <b>CLIP Vision model</b>.<br><br>
+            Place the IP-Adapter <code>.bin</code> or <code>.safetensors</code> file in:<br>
+            <code>ComfyUI/models/ipadapter/</code><br><br>
+            Place the CLIP Vision model (<code>CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors</code> for SD1.5/SDXL, or the FLUX-compatible variant) in:<br>
+            <code>ComfyUI/models/clip_vision/</code><br><br>
+
+            <b>Step 3 — Enable in ComfyUI Studio</b><br>
+            Go to <b>Settings → ⚗ Experimental → Enable IP-Adapter</b>. An IP-Adapter card will appear in the left panel.<br><br>
+
+            <b>Step 4 — Use it</b><br>
+            Select your IP-Adapter model and CLIP Vision model from the dropdowns, upload a reference image, and adjust the <b>Weight</b> slider. Higher weight = stronger influence from the reference image. Then generate as normal.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">(Limited testing done) How do I set up ControlNet?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Conditions generation on a control image — such as a depth map, edge detection (Canny), or pose skeleton — to guide structure and composition.<br><br>
+
+            <b>Step 1 — Download ControlNet models</b><br>
+            ControlNet models are built into ComfyUI — no custom node is needed. Place ControlNet <code>.safetensors</code> model files in:<br>
+            <code>ComfyUI/models/controlnet/</code><br><br>
+            Common models: <code>control_v11p_sd15_canny</code>, <code>control_v11f1p_sd15_depth</code>, <code>control_v11p_sd15_openpose</code>. Download from Hugging Face (lllyasviel's repo) or civitai.<br><br>
+
+            <b>Step 2 — Enable in ComfyUI Studio</b><br>
+            Go to <b>Settings → ⚗ Experimental → Enable ControlNet</b>. A ControlNet card will appear in the left panel.<br><br>
+
+            <b>Step 3 — Use it</b><br>
+            Select your ControlNet model from the dropdown, upload a control image (the preprocessed map — e.g. a Canny edge image), and set the <b>Strength</b> and <b>End Percent</b> sliders. End Percent controls how far into the sampling process ControlNet applies — lower values give a looser interpretation.<br><br>
+
+            <b>Note:</b> ComfyUI Studio does not include a preprocessor — you need to prepare your control image externally (e.g. run Canny edge detection yourself) before uploading it.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How does Inpainting work?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Lets you paint a mask over part of an image, then regenerate only the masked area while keeping the rest intact.<br><br>
+
+            <b>Step 1 — Enable it</b><br>
+            Go to <b>Settings → ⚗ Experimental → Enable Inpainting</b>.<br><br>
+
+            <b>Step 2 — Load an image into img2img</b><br>
+            Drag an image onto the img2img drop zone, or use <b>Send to img2img</b> from the image viewer. The Inpaint button will appear once an image is loaded.<br><br>
+
+            <b>Step 3 — Paint the mask</b><br>
+            Click <b>⬛ Inpaint Mask</b>. Paint over the areas you want to regenerate. Use the eraser to remove mask areas. The <b>Grid Snap</b> option snaps the brush to the 8×8 VAE latent grid, which produces cleaner mask boundaries.<br><br>
+
+            <b>Step 4 — Generate</b><br>
+            Write a prompt describing what you want in the masked area and click Generate. Only the masked region will change — the rest of the image is preserved.<br><br>
+
+            <b>Tips:</b> Keep denoise strength between 0.6–0.85 for best blending. Very high denoise (close to 1.0) may cause the inpainted area to ignore the surrounding context.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I use the Comparison Grid?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Runs multiple generation slots side-by-side with different sampler settings, prompts, or models, then assembles the results into a single comparison image.<br><br>
+
+            <b>Step 1 — Enable it</b><br>
+            Go to <b>Settings → ⚗ Experimental → Enable Comparison Grid</b>. A Comparison Grid panel will appear.<br><br>
+
+            <b>Step 2 — Configure slots</b><br>
+            Each slot inherits the current global settings by default. You can override the sampler, CFG, steps, or prompt per slot. Enable <b>Model Override</b> on a slot to use a different checkpoint for just that slot.<br><br>
+
+            <b>Step 3 — Generate</b><br>
+            Click <b>Run Grid</b>. Each slot generates in sequence. When all slots complete, the results are tiled into a grid image and added to your history.<br><br>
+
+            <b>Shared seed:</b> Enable <b>Shared Seed</b> so all slots use the same seed — useful when comparing settings rather than compositions.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I use Wildcards?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Defines named lists of tags. Each time you generate, one tag from the list is picked at random and substituted into your prompt.<br><br>
+
+            <b>Creating a wildcard</b><br>
+            Click <b>+ New Wildcard</b> in the Wildcards panel. Give it a name (e.g. <code>backgrounds</code>) and enter one tag per line in the editor (e.g. <code>sunny day</code>, <code>stormy night</code>, <code>cherry blossoms</code>). Save it.<br><br>
+
+            <b>Using a wildcard in a prompt</b><br>
+            Type the syntax <code>{{wc:name}}</code> anywhere in your prompt. For example: <code>1girl, {{wc:backgrounds}}</code>. Each generation replaces this with a random entry from the <code>backgrounds</code> wildcard list.<br><br>
+
+            You can also click a wildcard chip in the panel to insert it into the active prompt field at the cursor position.<br><br>
+
+            <b>Multiple wildcards</b> can be used in the same prompt — each resolves independently.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I use the Prompt Library?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> Saves reusable prompt snippets — quality tags, style phrases, negative boilerplate, etc. — that you can insert into any prompt with one click.<br><br>
+
+            <b>Saving an entry</b><br>
+            In the Prompt Library panel, type your snippet into the text field, give it a name, and click <b>Save</b>. Entries are stored in your browser and persist between sessions.<br><br>
+
+            <b>Using an entry</b><br>
+            Click any saved entry to append it to the currently focused prompt field (positive or negative). The <b>Include Prepend</b> toggle controls whether the library text is added at the beginning or end.<br><br>
+
+            <b>Tip:</b> The Prompt Library is great for storing your go-to negative prompt, model-specific quality tags, or recurring style phrases you use across many sessions.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do prompt weight modifiers work? (parentheses syntax)</summary>
+          <div class="help-answer">
+            ComfyUI uses parentheses to adjust how much emphasis the model places on a word or phrase.<br><br>
+
+            <b>Basic syntax:</b><br>
+            <code>(word:1.3)</code> — increase attention on "word" by 1.3×<br>
+            <code>(word:0.8)</code> — decrease attention on "word" to 0.8×<br>
+            <code>(word)</code> — shorthand for 1.1× (slight boost)<br>
+            <code>((word))</code> — double boost, ~1.21×<br><br>
+
+            Values above <code>1.5</code> or below <code>0.5</code> tend to produce distorted or oversaturated results. Keep adjustments subtle.<br><br>
+
+            <b>Highlighting:</b> The prompt editor color-codes modifier groups so you can see at a glance what is being boosted (green tint) or suppressed (red tint). This can be toggled off under <b>Settings → ⚗ Experimental → Enable tag modifier intensity highlighting</b>.<br><br>
+
+            <b>Autocomplete note:</b> If you have tag autocomplete enabled and a completed tag contains parentheses, they are escaped automatically (<code>\(</code>) so they're treated as literal characters rather than weight modifiers — unless you disable that option under <b>Settings → Tag Autocomplete</b>.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I upscale an image?</summary>
+          <div class="help-answer">
+            ComfyUI Studio supports two upscale methods:<br><br>
+
+            <b>Model upscale (Upscale panel)</b><br>
+            Uses a dedicated upscale model (ESRGAN, RealESRGAN, 4x-UltraSharp, etc.) for clean pixel upscaling with no re-generation. Place <code>.pth</code> or <code>.safetensors</code> upscale model files in:<br>
+            <code>ComfyUI/models/upscale_models/</code><br><br>
+            Then click the <b>Upscale</b> button under a generated image, select your model and scale factor, and click <b>Run Upscale</b>.<br><br>
+
+            <b>Enhance (img2img upscale)</b><br>
+            Uses your full checkpoint + sampler to upscale with re-generation detail. Found in the <b>Enhance</b> panel. Set the upscale model, denoise strength (lower = closer to original), steps, and run. This produces sharper, more detailed results but takes longer and can change the image.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How does metadata embedding work, and how do I import settings from a saved image?</summary>
+          <div class="help-answer">
+            <b>Embedding metadata:</b> When <b>Settings → ⚗ Experimental → Embed metadata in saved PNG images</b> is enabled, each saved image has your prompt, negative prompt, sampler settings, seed, resolution, and (optionally) LoRA names written into its PNG metadata. This lets you recover settings from any saved image later.<br><br>
+
+            <b>Importing from an image:</b> Drag any image with embedded metadata onto the img2img drop zone. If metadata is detected, a dialog appears letting you choose which fields to import — positive prompt, negative prompt, sampler settings, seed, resolution, LoRAs, and/or characters. You can also choose to use the image as an img2img source at the same time.<br><br>
+
+            <b>Note:</b> Images saved via the browser download dialog (no output path set) are saved as standard PNGs and metadata is embedded client-side. Images saved via the server output path are also written with metadata as long as the toggle is on.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">What is the 🚀 button and when should I use it?</summary>
+          <div class="help-answer">
+            The <b>🚀 Free VRAM</b> button (next to the URL bar) sends a request to ComfyUI to unload all currently loaded models from GPU memory and free cached memory.<br><br>
+
+            <b>When to use it:</b><br>
+            &nbsp;&nbsp;• Before switching to a very large model (e.g. FLUX after running SD1.5)<br>
+            &nbsp;&nbsp;• If ComfyUI throws an out-of-memory error mid-generation<br>
+            &nbsp;&nbsp;• After running JoyCaption (which loads a 17GB vision model) before returning to image generation<br>
+            &nbsp;&nbsp;• Any time you want to reclaim VRAM without restarting ComfyUI<br><br>
+
+            This calls ComfyUI's <code>/free</code> endpoint with <code>unload_models: true</code> and <code>free_memory: true</code>. The next generation after pressing it will be slower as models reload, but subsequent ones will be normal speed again.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I share my studio remotely?</summary>
+          <div class="help-answer">
+            The <b>Share</b> tab creates a public Cloudflare tunnel so someone else can use your studio over the internet — useful for remote access or letting a friend generate images on your GPU.<br><br>
+
+            <b>Requirements:</b><br>
+            &nbsp;&nbsp;1. The studio must be running via <code>node server.js</code> (not opened as a plain HTML file)<br>
+            &nbsp;&nbsp;2. <code>cloudflared</code> must be installed and on your system PATH. Download it from <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/" target="_blank">Cloudflare's site</a>.<br><br>
+
+            <b>To start sharing:</b><br>
+            Go to <b>Settings → ⇪ Share</b>, set a username and password, and click <b>Start Sharing</b>. A public URL will appear after a few seconds. Share that URL and the credentials with whoever you want to give access.<br><br>
+
+            The tunnel is only active while the Share tab is open. Closing the settings or stopping the tunnel makes the link immediately dead. Anyone using the studio remotely has full access — including generating images and using your models — so only share with people you trust.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do I use tag autocomplete?</summary>
+          <div class="help-answer">
+            Tag autocomplete suggests booru-style tags as you type in any prompt field, based on a CSV tag list you provide.<br><br>
+
+            <b>Getting a tag list CSV:</b><br>
+            The most popular source is the <b>danbooru tags</b> CSV from the <a href="https://github.com/DominikDoom/a1111-sd-webui-tagcomplete" target="_blank">a1111-sd-webui-tagcomplete</a> repo. Download <code>danbooru.csv</code> (or any compatible CSV).<br><br>
+
+            <b>Loading a tag list — local server:</b><br>
+            Place your CSV files in a folder called <code>comfystudio autocomplete</code> next to the studio files. Then go to <b>Settings → Tag Autocomplete</b> and click <b>↻ Scan</b>. Your files will appear in the dropdown.<br><br>
+
+            <b>Loading a tag list — remote / browser-only:</b><br>
+            Drag and drop a CSV file onto the drop zone in the Tag Autocomplete settings tab. The tags are saved in your browser and restore automatically on next load.<br><br>
+
+            <b>Formatting options:</b><br>
+            &nbsp;&nbsp;• <b>Auto-escape parentheses</b> — adds <code>\</code> before <code>(</code> and <code>)</code> in completed tags so they're treated as literal characters rather than weight modifiers<br>
+            &nbsp;&nbsp;• <b>Replace underscores with spaces</b> — converts <code>long_hair</code> to <code>long hair</code> on completion<br><br>
+
+            Suggestions appear as you type. Press <b>Tab</b> or <b>Enter</b> to accept the highlighted suggestion, or click it. Press <b>Escape</b> to dismiss.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">How do Characters work?</summary>
+          <div class="help-answer">
+            <b>What it does:</b> (Designed with natural language prompting in mind, Flux/Anima/etc.) Characters let you define multiple subjects in an image, each with a keyword and a prompt. The studio weaves them into the positive prompt automatically at generation time by replacing the keyword with the character description.<br><br>
+
+            <b>Adding a character:</b> Click <b>+ Add Character</b> in the Characters section. Each character has:<br>
+            &nbsp;&nbsp;• <b>Keyword</b> — a word already present in your main positive prompt that anchors this character (e.g. <code>{char:1}</code>)<br> It is recommended to not repeat the keyword in the main prompt.
+            &nbsp;&nbsp;• <b>Prompt</b> — appearance details for this character (e.g. <code>blue eyes, long hair, red dress</code>)<br><br>
+
+            <b>How it works:</b> At generation time, each character's keyword and prompt are appended to the positive prompt in order. Reorder characters with the ▲▼ buttons. Disable individual characters with the ◉ button without removing them.
+          </div>
+        </details>
+
+        <details class="help-item">
+          <summary class="help-q">What are Quality Tags and how do I use them?</summary>
+          <div class="help-answer">
+            Quality tags are a fixed block of prompt text that gets automatically prepended to every generation — things like <code>masterpiece, best quality, ultra detailed</code> for positive, or <code>worst quality, bad anatomy, blurry</code> for negative.<br><br>
+
+            <b>Enabling them:</b> In the positive or negative prompt sections, click the <b>Quality Tags</b> toggle. A text field appears where you can enter your quality tag boilerplate. Check the box to enable them for generation.<br><br>
+
+            Quality tags are prepended before your main prompt text, so they apply globally without cluttering your per-image prompt. They save separately from the prompt and persist between sessions.
+          </div>
+        </details>
+
+      </div>
+    </div><!-- /stab-help -->
+
+    <!-- ═══ Share Tab ═══ -->
+    <div class="stab-pane" id="stab-share">
+      <p class="settings-hint">Create a public link to your studio via a Cloudflare tunnel. Anyone with the link and password can use the full studio remotely. The tunnel only runs while this tab is open and active — stopping it makes the link dead immediately.</p>
+
+      <div class="share-requires-note" id="shareRequiresNote">
+        ⚠ Requires <code>cloudflared</code> on your PATH and the studio running via <code>node server.js</code>.
+      </div>
+
+      <!-- Credentials -->
+      <div class="share-creds-section" id="shareCredsSection">
+        <label class="field-label" style="margin-top:14px">Username</label>
+        <input type="text" id="shareUsername" class="settings-text-input" placeholder="e.g. studio" autocomplete="off" style="width:100%" />
+
+        <label class="field-label" style="margin-top:10px">Password</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="password" id="sharePassword" class="settings-text-input" placeholder="Choose a strong password" autocomplete="new-password" style="flex:1" />
+          <button class="icon-btn" id="sharePasswordToggle" onclick="toggleSharePasswordVisibility()" title="Show/hide password">👁</button>
+        </div>
+        <p class="settings-hint" style="margin-top:6px">Anyone visiting the shared URL will be prompted for these credentials.</p>
+      </div>
+
+      <!-- Start / Stop -->
+      <div style="display:flex;gap:8px;margin-top:14px;align-items:center">
+        <button class="share-start-btn" id="shareStartBtn" onclick="shareStart()">⇪ Start Sharing</button>
+        <button class="share-stop-btn" id="shareStopBtn" onclick="shareStop()" style="display:none">✕ Stop</button>
+        <span class="share-status-badge" id="shareStatusBadge"></span>
+      </div>
+
+      <!-- URL display -->
+      <div class="share-url-row" id="shareUrlRow" style="display:none">
+        <span class="share-url-label">Public URL</span>
+        <div class="share-url-box">
+          <span class="share-url-text" id="shareUrlText">—</span>
+          <button class="icon-btn" onclick="copyShareUrl()" title="Copy URL">⎘</button>
+        </div>
+        <p class="settings-hint" style="margin-top:4px">Share this URL + your credentials with whoever you want to give access.</p>
+      </div>
+
+      <!-- Waiting indicator -->
+      <div class="share-waiting" id="shareWaiting" style="display:none">
+        <div class="share-spinner"></div>
+        <span>Waiting for tunnel URL…</span>
+      </div>
+
+      <!-- Log -->
+      <details class="share-log-details" id="shareLogDetails" style="display:none">
+        <summary class="share-log-summary">▸ Tunnel log</summary>
+        <div class="share-log-box" id="shareLogBox"></div>
+      </details>
+    </div><!-- /stab-share -->
+  </div><!-- /settingsModal -->
+  <div class="modal-backdrop" id="metaBackdrop" onclick="closeMetaModal()"></div>
+  <div class="meta-modal" id="metaModal">
+    <button class="meta-close icon-btn" onclick="closeMetaModal()">✕</button>
+    <img id="metaPreviewImg" class="meta-preview-img" alt="Preview" />
+    <div class="meta-notice">✦ This image has metadata! Did you want to import that instead?</div>
+    <div class="meta-body">
+      <div class="meta-checks">
+        <label><input type="checkbox" id="metaChkPositive" checked /> Positive Prompt</label>
+        <label><input type="checkbox" id="metaChkNegative" checked /> Negative Prompt</label>
+        <label><input type="checkbox" id="metaChkLoras" checked /> LoRAs &amp; Strengths</label>
+        <label><input type="checkbox" id="metaChkChars" checked /> Characters</label>
+        <label><input type="checkbox" id="metaChkSampler" checked /> Sampler Settings</label>
+        <label><input type="checkbox" id="metaChkSeed" checked /> Seed</label>
+        <label><input type="checkbox" id="metaChkResolution" checked /> Resolution</label>
+      </div>
+      <div class="meta-actions">
+        <button class="meta-btn accent" onclick="importMetadata()">Import Metadata</button>
+        <button class="meta-btn" onclick="useImg2Img()">image2image</button>
+        <button class="meta-btn" onclick="importAndUseImg2Img()" title="Set as img2img source AND import the selected metadata fields">img2img + metadata</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CONFIRM DIALOG ═══ -->
+  <div class="modal-backdrop" id="confirmBackdrop"></div>
+  <div class="confirm-modal" id="confirmModal">
+    <p class="confirm-text" id="confirmText">Are you sure?</p>
+    <div class="confirm-actions">
+      <button class="meta-btn accent" id="confirmOkBtn">Confirm</button>
+      <button class="meta-btn" id="confirmCancelBtn" onclick="closeConfirmModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══ WILDCARD EDITOR MODAL ═══ -->
+  <div class="modal-backdrop" id="wildcardEditorBackdrop" onclick="closeWildcardEditor()"></div>
+  <div class="settings-modal wildcard-editor-modal" id="wildcardEditorModal">
+    <div class="settings-header">
+      <span class="settings-title">✦ Edit Wildcard</span>
+      <button class="icon-btn" onclick="closeWildcardEditor()">✕</button>
+    </div>
+    <div style="padding:14px 18px">
+      <label class="field-label">Wildcard Name <span style="opacity:.6;font-weight:400;text-transform:none">(use as <code style="font-family:var(--font-mono);font-size:10px;color:var(--accent-bright)">{{wc:name}}</code> in prompt)</span></label>
+      <input type="text" id="wildcardEditorName" class="settings-text-input" placeholder="e.g. backgrounds, hairstyles…" style="width:100%;margin-bottom:12px" />
+      <label class="field-label">Tags (one per line — a random one will be inserted when you click the wildcard)</label>
+      <textarea id="wildcardEditorTags" class="prompt-ta qtag-ta" rows="8" placeholder="sunny day&#10;stormy night&#10;cherry blossoms&#10;misty mountains…" style="width:100%;margin-top:4px"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="hist-btn" onclick="saveWildcardEditor()" style="width:auto;padding:6px 18px">✓ Save</button>
+        <button class="hist-btn danger" id="wildcardDeleteBtn" onclick="deleteWildcardFromEditor()" style="width:auto;padding:6px 14px;display:none">✕ Delete</button>
+        <button class="hist-btn" onclick="closeWildcardEditor()" style="width:auto;padding:6px 14px;margin-left:auto">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+
+    <!-- ═══ LEFT PANEL ═══ -->
+    <aside class="left-panel" id="leftPanel">
+
+      <!-- Panel top bar -->
+      <div class="panel-topbar">
+        <div class="logo">
+          <span class="logo-star">✦</span>
+          <span class="logo-text">Comfy<em>Studio</em></span>
+        </div>
+        <!-- Marbles display (hidden unless enabled) -->
+        <div class="marbles-display" id="marblesDisplay" style="display:none">
+          <span class="marbles-icon">🔮</span>
+          <span class="marbles-label">Marbles:</span>
+          <span class="marbles-count" id="marblesCount">0</span>
+        </div>
+        <div class="topbar-right">
+          <div class="connection-status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Connecting…</span>
+          </div>
+          <button class="icon-btn" id="settingsBtn" onclick="openSettings()" title="Settings">⚙</button>
+        </div>
+      </div>
+
+      <!-- ComfyUI URL row -->
+      <div class="url-row">
+        <span class="url-label">URL</span>
+        <input type="text" id="comfyUrl" value="http://127.0.0.1:8188" />
+        <button class="icon-btn" onclick="reconnect()" title="Reconnect">↻</button>
+        <button class="icon-btn" id="freeMemBtn" onclick="freeMemory()" title="Free VRAM — unloads models from GPU memory">🚀</button>
+      </div>
+
+      <!-- Panel mode tabs -->
+
+
+      <!-- Scrollable cards (Generate mode) -->
+      <div class="panel-scroll" id="panelScrollGenerate">
+
+        <!-- ════ MODEL CARD ════ -->
+        <div class="pcard" id="modelCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('modelCard')">
+            <span class="pcard-icon">◈</span>
+            <h3>Model</h3>
+            <div class="segmented" style="margin-left:auto" onclick="event.stopPropagation()">
+              <button class="seg-btn active" onclick="switchModelType('checkpoint',this)">Checkpoint</button>
+              <button class="seg-btn" onclick="switchModelType('diffusion',this)">Diffusion</button>
+            </div>
+            <span class="collapse-arrow">▾</span>
+          </div>
+          <div class="pcard-body" id="modelCard-body">
+            <div id="checkpointRow">
+              <label class="field-label">Checkpoint</label>
+              <div class="sel-wrap">
+                <select id="checkpointSelect"><option>Loading…</option></select>
+                <button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button>
+              </div>
+            </div>
+            <div id="diffusionRow" class="hidden">
+              <label class="field-label">UNET / Diffusion Model</label>
+              <div class="sel-wrap"><select id="diffusionSelect"><option>Loading…</option></select><button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button></div>
+              <label class="field-label" style="margin-top:10px">Text Encoder</label>
+              <div class="sel-wrap"><select id="teSelect"><option value="none">none</option></select></div>
+              <label class="field-label" style="margin-top:10px">Encoder Type</label>
+              <div class="sel-wrap">
+                <select id="teType">
+                  <option value="stable_diffusion">stable_diffusion</option>
+                  <option value="flux">flux</option>
+                  <option value="sd3">sd3</option>
+                  <option value="stable_cascade">stable_cascade</option>
+                  <option value="mochi">mochi</option>
+                  <option value="ltxv">ltxv</option>
+                  <option value="cosmos">cosmos</option>
+                  <option value="lumina2">lumina2</option>
+                  <option value="wan">wan</option>
+                  <option value="hidream">hidream</option>
+                  <option value="chroma">chroma</option>
+                  <option value="ace">ace</option>
+                  <option value="qwen_image">qwen_image</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:10px;margin-bottom:5px">
+              <label class="field-label" style="margin:0">VAE</label><span class="vae-info-icon">ⓘ</span>
+            </div>
+            <div class="sel-wrap">
+              <select id="vaeSelect"><option value="Automatic (embedded)" style="display:none"></option></select>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="model"></div>
+        </div>
+
+        <!-- ════ PROMPT AREA ════ -->
+        <div class="prompt-area-card pcard">
+          <div class="prompt-area">
+              <div class="prompt-tabs-bar">
+              <button class="ptab active" onclick="switchPromptTab('positive',this)">✦ Positive</button>
+              <button class="ptab" onclick="switchPromptTab('negative',this)">✧ Negative</button>
+              <button class="ptab notes-ptab" id="notesTab" onclick="switchPromptTab('notes',this)" style="display:none">📝 Notes</button>
+              <button class="icon-btn ptab-icon-btn" id="qualityTagsBtn" onclick="toggleQualityTagsPanel()" title="Prompt Settings">⚙</button>
+              <button class="icon-btn ptab-icon-btn" onclick="openPromptLibrary()" title="Saved Prompts">💾</button>
+            </div>
+
+            <!-- Quality tags panel -->
+            <div class="quality-tags-panel" id="qualityTagsPanel" style="display:none">
+              <!-- Panel sub-tabs -->
+              <div class="qtag-panel-tabs">
+                <button class="qtag-ptab active" onclick="switchQTagTab('prepend',this)">Prepend Tags</button>
+                <button class="qtag-ptab" onclick="switchQTagTab('wildcards',this)">Wildcards</button>
+                <button class="qtag-ptab" onclick="switchQTagTab('options',this)">Options</button>
+              </div>
+
+              <!-- Prepend Tags sub-pane -->
+              <div class="qtag-pane active-qtag-pane" id="qtag-pane-prepend">
+                <div class="quality-tags-row">
+                  <label class="qtag-toggle-label">
+                    <input type="checkbox" id="qualityTagsEnabled" />
+                    Prepend quality tags (positive only)
+                  </label>
+                </div>
+                <textarea id="qualityTagsText" class="prompt-ta qtag-ta" placeholder="masterpiece, best quality, …" rows="2"></textarea>
+                <div class="quality-tags-row" style="margin-top:8px">
+                  <label class="qtag-toggle-label">
+                    <input type="checkbox" id="negQualityTagsEnabled" />
+                    Prepend negative tags (negative only)
+                  </label>
+                </div>
+                <textarea id="negQualityTagsText" class="prompt-ta qtag-ta" placeholder="lowres, worst quality, …" rows="2"></textarea>
+              </div>
+
+              <!-- Wildcards sub-pane -->
+              <div class="qtag-pane" id="qtag-pane-wildcards" style="display:none">
+                <p class="settings-hint" style="margin:0 0 8px">Wildcards work like characters — use <code>{{wc:name}}</code> in your prompt and it will be replaced with a random tag from that wildcard at generation time. Click ✏ to edit, <strong>+</strong> to add new.</p>
+                <div class="wildcard-list" id="wildcardList">
+                  <p class="empty-hint" id="wildcardEmpty">No wildcards yet — click ＋ to add one.</p>
+                </div>
+                <button class="qtag-add-btn" onclick="addWildcard()">＋ New Wildcard</button>
+              </div>
+
+              <!-- Options sub-pane -->
+              <div class="qtag-pane" id="qtag-pane-options" style="display:none">
+                <div class="settings-toggle-row" style="margin-top:4px">
+                  <label class="toggle-label">
+                    <input type="checkbox" id="notesEnabledToggle" onchange="toggleNotesFeature(this.checked)" />
+                    Show Notes panel
+                  </label>
+                </div>
+                <div class="settings-toggle-row" style="margin-top:10px">
+                  <label class="toggle-label">
+                    <input type="checkbox" id="hideCharactersToggle" onchange="toggleHideCharacters(this.checked)" />
+                    Hide Characters card
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Positive prompt with highlight overlay -->
+            <div id="promptPositive" class="prompt-pane active-pane" style="position:relative">
+              <div class="prompt-highlight-layer" id="highlightLayerPositive" aria-hidden="true"></div>
+              <textarea
+                id="positivePrompt"
+                class="prompt-ta pos-ta"
+                placeholder="1girl, loona \(helluva boss\), standing, solo, soft lighting, detailed background…"
+                rows="5"
+                oninput="updatePromptHighlight('positive')"
+                onscroll="syncHighlightScroll('positive')"
+              ></textarea>
+            </div>
+
+            <!-- Negative prompt with highlight overlay -->
+            <div id="promptNegative" class="prompt-pane" style="position:relative">
+              <div class="prompt-highlight-layer" id="highlightLayerNegative" aria-hidden="true"></div>
+              <textarea
+                id="negativePrompt"
+                class="prompt-ta neg-ta"
+                placeholder="lowres, bad anatomy, bad hands, missing fingers, worst quality, blurry, watermark…"
+                rows="5"
+                oninput="updatePromptHighlight('negative')"
+                onscroll="syncHighlightScroll('negative')"
+              ></textarea>
+            </div>
+
+            <!-- Notes pane (zero generation impact) -->
+            <div id="promptNotes" class="prompt-pane" style="position:relative">
+              <textarea
+                id="notesTextarea"
+                class="prompt-ta notes-ta"
+                placeholder="Notes have zero impact on any generations — use this space to jot down prompting ideas, model notes, settings to try, or anything else…"
+                rows="5"
+                oninput="saveNotesContent()"
+              ></textarea>
+            </div>
+
+            <!-- Base image upload (drop target) -->
+            <div class="base-img-zone" id="baseImgZone">
+              <label class="base-img-label" id="baseImgLabel">
+                <span class="base-img-icon">⊕</span> Add Base IMG <em>(click or drop image here)</em>
+              </label>
+              <input type="file" id="baseImgInput" accept="image/*" style="display:none" />
+            </div>
+
+            <!-- img2img preview strip -->
+            <div class="img2img-strip" id="img2imgStrip" style="display:none">
+              <div class="img2img-strip-actions">
+                <button class="img2img-draw-btn" id="img2imgDrawBtn" onclick="openDrawMenu()" title="Draw on image">✏</button>
+                <button class="img2img-remove" onclick="removeImg2Img()" title="Remove">✕</button>
+              </div>
+              <img id="img2imgPreview" class="img2img-preview" alt="img2img source" />
+              <div class="img2img-slider-wrap">
+                <label class="field-label" style="margin:0 6px 0 0">Denoise</label>
+                <input type="range" id="img2imgDenoise" min="0" max="1" step="0.01" value="0.7" oninput="updateImg2ImgDenoiseLabel(this)" />
+                <span id="img2imgDenoiseVal" class="token-value">0.70</span>
+              </div>
+              <button class="inpaint-launch-btn" id="inpaintLaunchBtn" onclick="openInpaintMenu()" style="display:none">⬛ Draw Mask</button>
+              <!-- Inpaint controls — shown only when a mask is active -->
+              <div id="inpaintControls" style="display:none">
+                <div class="inpaint-active-bar">
+                  <span class="inpaint-active-label">⬛ Mask active</span>
+                  <button class="paint-tool-btn" onclick="clearActiveMask()" style="font-size:10px;padding:2px 7px">✕ Clear Mask</button>
+                  <button class="paint-tool-btn" onclick="openInpaintMenu()" style="font-size:10px;padding:2px 7px">✏ Edit</button>
+                </div>
+
+                <!-- Focused Inpainting mode badge + Full Image toggle -->
+                <div class="focused-inpaint-header">
+                  <span class="focused-inpaint-badge">◈ Focused Inpainting</span>
+                  <label class="fi-toggle-label" title="Fall back to whole-image inpainting (faster for large masks)">
+                    <input type="checkbox" id="inpaintFullImageToggle" onchange="onFullImageToggle()" />
+                    <span class="fi-toggle-text">Full Image</span>
+                  </label>
+                </div>
+
+                <div class="slider-row" style="margin-top:6px">
+                  <div class="slider-label-row">
+                    <label class="field-label">Inpaint Denoise</label>
+                    <input type="number" id="inpaintDenoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.85" oninput="syncNum('inpaintDenoise')" />
+                  </div>
+                  <input type="range" id="inpaintDenoiseSlider" min="0" max="1" step="0.01" value="0.85" oninput="syncSlider('inpaintDenoise')" />
+                </div>
+
+                <!-- Focused-mode controls (hidden in Full Image mode) -->
+                <div id="focusedInpaintControls">
+                  <div class="slider-row" style="margin-top:4px">
+                    <div class="slider-label-row">
+                      <label class="field-label">Context Area</label>
+                      <span class="fi-pct-val" id="inpaintContextVal">10%</span>
+                      <input type="range" id="inpaintContextSlider" min="0" max="30" step="1" value="10" oninput="document.getElementById('inpaintContextVal').textContent=this.value+'%'" style="display:none" />
+                    </div>
+                    <input type="range" id="inpaintContextSlider2" min="0" max="30" step="1" value="10" oninput="document.getElementById('inpaintContextVal').textContent=this.value+'%';document.getElementById('inpaintContextSlider').value=this.value" />
+                  </div>
+                  <div class="inpaint-options-row" style="margin-top:4px">
+                    <div style="flex:1">
+                      <label class="field-label">Working Res</label>
+                      <div class="sel-wrap">
+                        <select id="inpaintWorkingRes">
+                          <option value="512">512 px</option>
+                          <option value="768">768 px</option>
+                          <option value="1024" selected>1024 px</option>
+                          <option value="1536">1536 px</option>
+                          <option value="2048">2048 px</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style="flex:1">
+                      <label class="field-label">Mask Mode</label>
+                      <div class="sel-wrap">
+                        <select id="inpaintMaskMode">
+                          <option value="masked">Inpaint Masked</option>
+                          <option value="unmasked">Inpaint Unmasked</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="slider-row" style="margin-top:4px">
+                    <div class="slider-label-row">
+                      <label class="field-label">Feather Blend</label>
+                      <input type="number" id="inpaintMaskBlurNum" class="num-input" min="0" max="32" step="1" value="8" oninput="syncNum('inpaintMaskBlur')" />
+                    </div>
+                    <input type="range" id="inpaintMaskBlurSlider" min="0" max="32" step="1" value="8" oninput="syncSlider('inpaintMaskBlur')" />
+                  </div>
+                </div>
+
+                <!-- Full Image fallback controls (shown only in Full Image mode) -->
+                <div id="fullImageInpaintControls" style="display:none">
+                  <div class="slider-row" style="margin-top:4px">
+                    <div class="slider-label-row">
+                      <label class="field-label">Mask Blur</label>
+                      <input type="number" id="inpaintMaskBlurFullNum" class="num-input" min="0" max="32" step="1" value="4" oninput="syncNum('inpaintMaskBlurFull')" />
+                    </div>
+                    <input type="range" id="inpaintMaskBlurFullSlider" min="0" max="32" step="1" value="4" oninput="syncSlider('inpaintMaskBlurFull')" />
+                  </div>
+                  <div class="inpaint-options-row" style="margin-top:4px">
+                    <div style="flex:1">
+                      <label class="field-label">Mask Mode</label>
+                      <div class="sel-wrap">
+                        <select id="inpaintMaskModeFullImage">
+                          <option value="masked">Inpaint Masked</option>
+                          <option value="unmasked">Inpaint Unmasked</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LoRAs card -->
+        <div class="pcard" id="loraCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('loraCard')">
+            <span class="pcard-icon">◇</span>
+            <h3>LoRAs</h3>
+            <button class="icon-btn" onclick="event.stopPropagation();loadModels()" title="Reload LoRA models" style="margin-left:auto">↻</button>
+            <button class="add-btn" onclick="event.stopPropagation();addLora()" title="Add LoRA">＋</button>
+            <span class="collapse-arrow">▾</span>
+          </div>
+          <div class="pcard-body" id="loraCard-body">
+            <div id="loraList" class="lora-list"><p class="empty-hint">No LoRAs — click ＋ to add</p></div>
+          </div>
+          <div class="card-resize-handle" data-card="loras"></div>
+        </div>
+
+        <!-- Characters card -->
+        <div class="pcard" id="charactersCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('charactersCard')">
+            <span class="pcard-icon">◉</span>
+            <h3>Characters</h3>
+            <button class="add-btn" onclick="event.stopPropagation();addCharacter()" title="Add Character" style="margin-left:auto">＋</button>
+            <span class="collapse-arrow">▾</span>
+          </div>
+          <div class="pcard-body" id="charactersCard-body">
+            <div id="characterList" class="character-list">
+              <p class="empty-hint" id="charEmpty">No characters — click ＋ to add</p>
+            </div>
+            <div class="char-hint-box" id="charHintBox" style="display:none">
+              <span class="hint-icon">◈</span>
+              <p>Use each character's keyword (e.g. <code>{char:1}</code>) inside your positive prompt — it will be replaced with that character's description at generation time.</p>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="characters"></div>
+        </div>
+
+        <!-- Resolution card -->
+        <div class="pcard" id="resolutionCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('resolutionCard')">
+            <span class="pcard-icon">⬚</span>
+            <h3>Resolution</h3>
+            <span class="collapse-arrow" style="margin-left:auto">▾</span>
+          </div>
+          <div class="pcard-body" id="resolutionCard-body">
+            <div class="res-selectors-row">
+              <div class="sel-wrap" style="flex:1">
+                <select id="resCategorySelect" onchange="onResCategoryChange()">
+                  <option value="normal">Normal</option>
+                  <option value="large">Large</option>
+                  <option value="wallpaper">Wallpaper</option>
+                  <option value="small">Small</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="sel-wrap" style="flex:1" id="resOrientWrap">
+                <select id="resOrientSelect" onchange="onResOrientChange()">
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                  <option value="square">Square</option>
+                </select>
+              </div>
+              <div class="sel-wrap" style="flex:1" id="resStandardWrap">
+                <select id="resStandardSelect" onchange="onResStandardChange()">
+                  <option value="sdxl">SDXL</option>
+                  <option value="novelai">NovelAI</option>
+                  <option value="anima">Anima</option>
+                </select>
+              </div>
+            </div>
+            <div class="custom-res-wrap" id="customResWrap">
+              <div class="custom-res-inputs">
+                <div class="field-group">
+                  <label>Width</label>
+                  <input type="number" id="customW" value="512" min="64" max="4096" step="64" oninput="updateCustomRes()" />
+                </div>
+                <button class="icon-btn res-flip-btn" onclick="flipCustomRes()" title="Flip width ↔ height">⇄</button>
+                <div class="field-group">
+                  <label>Height</label>
+                  <input type="number" id="customH" value="512" min="64" max="4096" step="64" oninput="updateCustomRes()" />
+                </div>
+              </div>
+            </div>
+            <div class="current-res" id="currentRes">512 × 512</div>
+          </div>
+          <div class="card-resize-handle" data-card="resolution"></div>
+        </div>
+
+        <!-- ════ IP ADAPTER CARD ════ -->
+        <div class="pcard" id="ipAdapterCard" style="display:none">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('ipAdapterCard')">
+            <span class="pcard-icon">🖼</span>
+            <h3>IP-Adapter</h3>
+            <span class="collapse-arrow" style="margin-left:auto">▾</span>
+          </div>
+          <div class="pcard-body" id="ipAdapterCard-body">
+            <p class="settings-hint" style="margin-bottom:10px">⚠️ <strong>Compatibility warning:</strong> IP-Adapter only works with <strong>SDXL and SD 1.5 based models</strong>. It will not work with Flux, Cosmos-based models (e.g. Anima), or other novel architectures. You must also have a matching IP-Adapter model and CLIP Vision model installed in ComfyUI.</p>
+
+            <label class="field-label">IP-Adapter Model</label>
+            <div class="sel-wrap">
+              <select id="ipaModelSelect"><option value="">— Load models first —</option></select>
+            </div>
+
+            <label class="field-label" style="margin-top:10px">CLIP Vision Model</label>
+            <div class="sel-wrap">
+              <select id="ipaClipSelect"><option value="">— Load models first —</option></select>
+            </div>
+
+            <div class="slider-row" style="margin-top:12px">
+              <div class="slider-label-row">
+                <label class="field-label">Weight</label>
+                <input type="number" id="ipaWeightNum" class="num-input" min="0" max="2" step="0.05" value="1.0" oninput="syncNum('ipaWeight')" />
+              </div>
+              <input type="range" id="ipaWeightSlider" min="0" max="2" step="0.05" value="1.0" oninput="syncSlider('ipaWeight')" />
+            </div>
+
+            <label class="field-label" style="margin-top:10px">Weight Type</label>
+            <div class="sel-wrap">
+              <select id="ipaWeightType">
+                <option value="standard">standard</option>
+                <option value="prompt is more important">prompt is more important</option>
+                <option value="style transfer">style transfer</option>
+                <option value="style transfer precise">style transfer precise</option>
+                <option value="composition">composition</option>
+                <option value="linear">linear</option>
+              </select>
+            </div>
+
+            <label class="field-label" style="margin-top:12px">Reference Image</label>
+            <div class="ipa-upload-area" id="ipaUploadArea" onclick="document.getElementById('ipaImageInput').click()">
+              <input type="file" id="ipaImageInput" accept="image/*" style="display:none" onchange="handleIPAImageUpload(this)" />
+              <div id="ipaPreviewWrap" style="display:none;position:relative">
+                <img id="ipaPreviewImg" style="max-width:100%;border-radius:4px;display:block" />
+                <button class="ipa-clear-btn" onclick="clearIPAImage(event)" title="Remove">✕</button>
+              </div>
+              <div id="ipaDropHint" class="ipa-drop-hint">
+                <span>Click or drop image here</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="ipAdapter"></div>
+        </div>
+
+        <!-- ════ CONTROLNET CARD ════ -->
+        <div class="pcard" id="controlNetCard" style="display:none">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('controlNetCard')">
+            <span class="pcard-icon">🎛</span>
+            <h3>ControlNet</h3>
+            <span class="collapse-arrow" style="margin-left:auto">▾</span>
+          </div>
+          <div class="pcard-body" id="controlNetCard-body">
+            <p class="settings-hint" style="margin-bottom:10px">Conditions the generation on a structural control image (canny, depth, pose, etc.). Upload a pre-processed control image or use the raw image directly.</p>
+
+            <label class="field-label">ControlNet Model</label>
+            <div class="sel-wrap">
+              <select id="cnModelSelect"><option value="">— Load models first —</option></select>
+            </div>
+
+            <div class="slider-row" style="margin-top:12px">
+              <div class="slider-label-row">
+                <label class="field-label">Strength</label>
+                <input type="number" id="cnStrengthNum" class="num-input" min="0" max="2" step="0.05" value="1.0" oninput="syncNum('cnStrength')" />
+              </div>
+              <input type="range" id="cnStrengthSlider" min="0" max="2" step="0.05" value="1.0" oninput="syncSlider('cnStrength')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">Start %</label>
+                <input type="number" id="cnStartNum" class="num-input" min="0" max="1" step="0.01" value="0.0" oninput="syncNum('cnStart')" />
+              </div>
+              <input type="range" id="cnStartSlider" min="0" max="1" step="0.01" value="0.0" oninput="syncSlider('cnStart')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">End %</label>
+                <input type="number" id="cnEndNum" class="num-input" min="0" max="1" step="0.01" value="1.0" oninput="syncNum('cnEnd')" />
+              </div>
+              <input type="range" id="cnEndSlider" min="0" max="1" step="0.01" value="1.0" oninput="syncSlider('cnEnd')" />
+            </div>
+
+            <label class="field-label" style="margin-top:10px">Control Image</label>
+            <div class="ipa-upload-area" id="cnUploadArea" onclick="document.getElementById('cnImageInput').click()">
+              <input type="file" id="cnImageInput" accept="image/*" style="display:none" onchange="handleCNImageUpload(this)" />
+              <div id="cnPreviewWrap" style="display:none;position:relative">
+                <img id="cnPreviewImg" style="max-width:100%;border-radius:4px;display:block" />
+                <button class="ipa-clear-btn" onclick="clearCNImage(event)" title="Remove">✕</button>
+              </div>
+              <div id="cnDropHint" class="ipa-drop-hint">
+                <span>Click or drop control image here</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="controlNet"></div>
+        </div>
+
+        <!-- ════ SAMPLER CARD ════ -->
+        <div class="pcard" id="samplerCard">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('samplerCard')">
+            <span class="pcard-icon">⚙</span>
+            <h3>Sampler</h3>
+            <span class="collapse-arrow" style="margin-left:auto">▾</span>
+          </div>
+          <div class="pcard-body" id="samplerCard-body">
+            <label class="field-label">Sampler</label>
+            <div class="sel-wrap">
+              <select id="samplerName">
+                <option value="euler">euler</option>
+                <option value="euler_cfg_pp">euler_cfg_pp</option>
+                <option value="euler_ancestral" selected>euler_ancestral</option>
+                <option value="euler_ancestral_cfg_pp">euler_ancestral_cfg_pp</option>
+                <option value="heun">heun</option>
+                <option value="heunpp2">heunpp2</option>
+                <option value="exp_heun_2_x0">exp_heun_2_x0</option>
+                <option value="exp_heun_2_x0_sde">exp_heun_2_x0_sde</option>
+                <option value="dpm_2">dpm_2</option>
+                <option value="dpm_2_ancestral">dpm_2_ancestral</option>
+                <option value="lms">lms</option>
+                <option value="dpm_fast">dpm_fast</option>
+                <option value="dpm_adaptive">dpm_adaptive</option>
+                <option value="dpmpp_2s_ancestral">dpmpp_2s_ancestral</option>
+                <option value="dpmpp_2s_ancestral_cfg_pp">dpmpp_2s_ancestral_cfg_pp</option>
+                <option value="dpmpp_sde">dpmpp_sde</option>
+                <option value="dpmpp_sde_gpu">dpmpp_sde_gpu</option>
+                <option value="dpmpp_2m">dpmpp_2m</option>
+                <option value="dpmpp_2m_cfg_pp">dpmpp_2m_cfg_pp</option>
+                <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+                <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
+                <option value="dpmpp_2m_sde_heun">dpmpp_2m_sde_heun</option>
+                <option value="dpmpp_2m_sde_heun_gpu">dpmpp_2m_sde_heun_gpu</option>
+                <option value="dpmpp_3m_sde">dpmpp_3m_sde</option>
+                <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
+                <option value="ddpm">ddpm</option>
+                <option value="lcm">lcm</option>
+                <option value="ipndm">ipndm</option>
+                <option value="ipndm_v">ipndm_v</option>
+                <option value="deis">deis</option>
+                <option value="res_multistep">res_multistep</option>
+                <option value="res_multistep_cfg-pp">res_multistep_cfg-pp</option>
+                <option value="res_multistep_ancestral">res_multistep_ancestral</option>
+                <option value="res_multistep_ancestral_cfg-pp">res_multistep_ancestral_cfg-pp</option>
+                <option value="gradient_estimation">gradient_estimation</option>
+                <option value="gradient_estimation_cfg_pp">gradient_estimation_cfg_pp</option>
+                <option value="er_sde">er_sde</option>
+                <option value="seeds_2">seeds_2</option>
+                <option value="seeds_3">seeds_3</option>
+                <option value="sa_solver">sa_solver</option>
+                <option value="sa_solver_pece">sa_solver_pece</option>
+                <option value="ddim">ddim</option>
+                <option value="uni_pc">uni_pc</option>
+                <option value="uni_pc_bh2">uni_pc_bh2</option>
+              </select>
+            </div>
+            <label class="field-label" style="margin-top:12px">Scheduler</label>
+            <div class="sel-wrap">
+              <select id="scheduler">
+                <option value="simple">simple</option>
+                <option value="sgm_uniform">sgm_uniform</option>
+                <option value="karras" selected>karras</option>
+                <option value="exponential">exponential</option>
+                <option value="ddim_uniform">ddim_uniform</option>
+                <option value="beta">beta</option>
+                <option value="normal">normal</option>
+                <option value="linear_quadratic">linear_quadratic</option>
+                <option value="kl_optimal">kl_optimal</option>
+              </select>
+            </div>
+            <div class="slider-row" style="margin-top:14px">
+              <div class="slider-label-row">
+                <label class="field-label">Steps</label>
+                <input type="number" id="stepsNum" class="num-input" min="1" max="150" value="28" oninput="syncNum('steps')" />
+              </div>
+              <input type="range" id="stepsSlider" min="1" max="150" value="28" oninput="syncSlider('steps')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">CFG Scale</label>
+                <input type="number" id="cfgNum" class="num-input" min="1" max="30" step="0.5" value="7" oninput="syncNum('cfg')" />
+              </div>
+              <input type="range" id="cfgSlider" min="1" max="30" step="0.5" value="7" oninput="syncSlider('cfg')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">Denoise</label>
+                <input type="number" id="denoiseNum" class="num-input" min="0" max="1" step="0.01" value="1" oninput="syncNum('denoise')" />
+              </div>
+              <input type="range" id="denoiseSlider" min="0" max="1" step="0.01" value="1" oninput="syncSlider('denoise')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row">
+                <label class="field-label">Batch Size</label>
+                <input type="number" id="batchNum" class="num-input small" min="1" max="8" value="1" oninput="syncNum('batch')" />
+              </div>
+              <input type="range" id="batchSlider" min="1" max="8" value="1" oninput="syncSlider('batch')" />
+            </div>
+            <div class="seed-section">
+              <label class="field-label">Seed</label>
+              <div class="seed-row">
+                <input type="number" id="seedInput" class="seed-input" value="-1" />
+                <button class="icon-btn" onclick="randomSeed()" title="Random seed">⚄</button>
+                <button class="icon-btn" onclick="toggleLockSeed()" title="Lock seed" id="lockSeedBtn">🔓</button>
+              </div>
+              <small class="seed-hint">−1 = random each run</small>
+            </div>
+          </div>
+          <div class="card-resize-handle" data-card="sampler"></div>
+        </div>
+
+        <!-- ════ CAPTION CARD ════ -->
+        <div class="pcard" id="captionCard" style="display:none">
+          <div class="pcard-header collapsible-header" onclick="toggleCard('captionCard')">
+            <span class="pcard-icon">🏷</span>
+            <h3>Image Caption</h3>
+            <span class="collapse-arrow" style="margin-left:auto">▾</span>
+          </div>
+          <div class="pcard-body" id="captionCard-body">
+            <label class="field-label">Mode</label>
+            <div class="segmented" style="margin-bottom:10px">
+              <button class="seg-btn active" id="captionModeTagsBtn" onclick="setCaptionMode('tags',this)">Tags</button>
+              <button class="seg-btn" id="captionModeLangBtn" onclick="setCaptionMode('natural',this)">Natural Language</button>
+            </div>
+
+            <!-- Tags mode options -->
+            <div id="captionTagsOptions">
+              <label class="field-label">WD14 Model</label>
+              <div class="sel-wrap" style="margin-bottom:8px">
+                <select id="captionWd14Model">
+                  <option value="wd-v1-4-moat-tagger-v2">wd-v1-4-moat-tagger-v2 (recommended)</option>
+                  <option value="wd-v1-4-swinv2-tagger-v2">wd-v1-4-swinv2-tagger-v2</option>
+                  <option value="wd-v1-4-convnext-tagger-v2">wd-v1-4-convnext-tagger-v2</option>
+                  <option value="wd-v1-4-vit-tagger-v2">wd-v1-4-vit-tagger-v2</option>
+                  <option value="wd14-convnext">wd14-convnext</option>
+                </select>
+              </div>
+              <div class="slider-row">
+                <div class="slider-label-row">
+                  <label class="field-label">Tag Threshold</label>
+                  <input type="number" id="captionThresholdNum" class="num-input" min="0" max="1" step="0.01" value="0.35" oninput="syncNum('captionThreshold')" />
+                </div>
+                <input type="range" id="captionThresholdSlider" min="0" max="1" step="0.01" value="0.35" oninput="syncSlider('captionThreshold')" />
+              </div>
+            </div>
+
+            <!-- Natural language mode options -->
+            <div id="captionNaturalOptions" style="display:none">
+              <label class="field-label">Caption Type</label>
+              <div class="sel-wrap" style="margin-bottom:8px">
+                <select id="captionNaturalModel">
+                  <option value="Descriptive" selected>Descriptive</option>
+                  <option value="Descriptive (Casual)">Descriptive (Casual)</option>
+                  <option value="Straightforward">Straightforward</option>
+                  <option value="Stable Diffusion Prompt">Stable Diffusion Prompt</option>
+                  <option value="MidJourney">MidJourney</option>
+                  <option value="Danbooru tag list">Danbooru tag list</option>
+                  <option value="e621 tag list">e621 tag list</option>
+                  <option value="Rule34 tag list">Rule34 tag list</option>
+                  <option value="Booru-like tag list">Booru-like tag list</option>
+                  <option value="Art Critic">Art Critic</option>
+                  <option value="Product Listing">Product Listing</option>
+                  <option value="Social Media Post">Social Media Post</option>
+                </select>
+              </div>
+              <label class="field-label">Caption Length</label>
+              <div class="sel-wrap" style="margin-bottom:8px">
+                <select id="captionJoyLength">
+                  <option value="any">Any</option>
+                  <option value="very short">Very Short</option>
+                  <option value="short">Short</option>
+                  <option value="medium-length" selected>Medium</option>
+                  <option value="long">Long</option>
+                  <option value="very long">Very Long</option>
+                </select>
+              </div>
+              <label class="field-label">Memory Mode</label>
+              <div class="sel-wrap" style="margin-bottom:8px">
+                <select id="captionJoyMemory">
+                  <option value="Default">Default (BF16, ~17GB VRAM)</option>
+                  <option value="Balanced" selected>Balanced (8-bit, ~8GB VRAM)</option>
+                  <option value="Maximum Savings">Maximum Savings (4-bit, ~4GB VRAM)</option>
+                </select>
+              </div>
+            </div>
+
+            <label class="field-label" style="margin-top:4px">Image</label>
+            <div class="ipa-upload-area" id="captionUploadArea" onclick="document.getElementById('captionImageInput').click()">
+              <input type="file" id="captionImageInput" accept="image/*" style="display:none" onchange="handleCaptionImageUpload(this)" />
+              <div id="captionPreviewWrap" style="display:none;position:relative">
+                <img id="captionPreviewImg" style="max-width:100%;border-radius:4px;display:block" />
+                <button class="ipa-clear-btn" onclick="clearCaptionImage(event)" title="Remove">✕</button>
+              </div>
+              <div id="captionDropHint" class="ipa-drop-hint">
+                <span>Click or drop image here</span>
+              </div>
+            </div>
+            <button class="hist-btn" id="captionUseCurrentBtn" onclick="captionUseCurrentImage()" style="width:100%;margin-top:6px;padding:5px 0" title="Use the currently displayed output image">⤴ Use Current Image</button>
+
+            <button class="hist-btn accent" id="captionRunBtn" onclick="runCaption()" style="width:100%;margin-top:8px;padding:7px 0;font-weight:600">▶ Caption Image</button>
+
+            <div id="captionResultWrap" style="display:none;margin-top:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <label class="field-label" style="margin:0">Result</label>
+                <button class="hist-btn" onclick="captionSendToPrompt()" style="width:auto;padding:3px 10px;font-size:11px" title="Append caption result to positive prompt">→ Positive Prompt</button>
+              </div>
+              <textarea id="captionResultText" class="prompt-ta qtag-ta" rows="4" readonly style="width:100%;background:var(--bg-void);font-size:11px;color:var(--text-hi)" placeholder="Caption will appear here…"></textarea>
+            </div>
+
+            <div id="captionStatusWrap" style="display:none;margin-top:8px;font-size:11px;color:var(--text-mid);text-align:center"></div>
+          </div>
+          <div class="card-resize-handle" data-card="caption"></div>
+        </div>
+
+      </div><!-- /panel-scroll generate -->
+
+      <!-- Custom Workflow Panel -->
+      <!-- Panel footer -->
+      <div class="panel-footer" id="panelFooterGenerate">
+        <div class="progress-wrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <span class="progress-text" id="progressText"></span>
+        </div>
+        <div class="batch-counter" id="batchCounter" style="display:none">
+          <span id="batchCounterText">Image 1/1</span>
+        </div>
+        <button class="generate-btn" id="generateBtn" onclick="generate()">
+          <span class="gen-icon">⟡</span>
+          <span id="genBtnText">Generate</span>
+        </button>
+        <button class="interrupt-btn" onclick="interrupt()">✕ Interrupt</button>
+      </div>
+
+      <div class="resize-handle" id="resizeHandle"></div>
+
+    </aside><!-- /left-panel -->
+
+    <!-- ═══ IMAGE PANE ═══ -->
+    <div class="image-pane">
+
+      <!-- Image action bar (Upscale / Use as Base / Variations / Enhance) -->
+      <div class="image-topbar">
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="icon-btn back-mode-btn" id="backModeBtn" onclick="exitImageMode()" title="Exit mode" style="display:none">◁</button>
+          <span class="img-title" id="imgTitle">Output</span>
+
+        </div>
+        <button class="save-btn prominent-save" id="saveBtn" onclick="saveImage()" disabled>⬇ Save Image</button>
+      </div>
+
+      <div class="image-action-bar">
+        <button class="img-action-btn" id="actionUpscaleBtn" onclick="toggleUpscaleMode()">⬆ Upscale</button>
+        <button class="img-action-btn" onclick="useAsBase()">⊕ Use as Base</button>
+        <button class="img-action-btn" onclick="generateVariations()">⟳ Variations</button>
+        <button class="img-action-btn" id="actionEnhanceBtn" onclick="toggleEnhanceMode()">✦ Enhance</button>
+        <button class="img-action-btn" id="actionCompGridBtn" onclick="toggleCompGridPanel()" style="display:none">⊞ Compare</button>
+        <button class="img-action-btn" id="actionCaptionBtn" onclick="captionCurrentImageFromBar()" style="display:none" title="Send current image to Image Captioning">🏷 Caption</button>
+      </div>
+
+      <div class="image-area" id="imageArea"
+           ondragover="onDropAreaDragOver(event)"
+           ondragleave="onDropAreaDragLeave(event)"
+           ondrop="onDropAreaDrop(event)">
+        <div class="img-placeholder" id="imgPlaceholder">
+          <div class="placeholder-glyph">✦</div>
+          <p>Your image will appear here</p>
+        </div>
+        <img id="outputImg" class="output-img" style="display:none" alt="Generated"
+             draggable="true" ondragstart="onOutputImgDragStart(event)" />
+        <!-- Step preview: fills the image area during generation -->
+        <img id="stepPreviewImg" class="step-preview-img" style="display:none" alt="Step preview" />
+        <!-- Generation overlay: only shows when no preview is available yet -->
+        <div class="gen-overlay" id="genOverlay" style="display:none">
+          <div class="gen-spinner"></div>
+          <span id="genOverlayText">Generating…</span>
+        </div>
+        <!-- Progress bar overlay: shown during generation above everything -->
+        <div class="gen-progress-overlay" id="genProgressOverlay" style="display:none">
+          <div class="gen-progress-track">
+            <div class="gen-progress-fill" id="genProgressFill"></div>
+          </div>
+          <span class="gen-progress-text" id="genProgressText"></span>
+        </div>
+        <!-- Action overlays -->
+        <button class="corner-action-btn" id="enhanceGoBtn" style="display:none" onclick="doEnhance()">✦ Enhance</button>
+        <button class="corner-action-btn upscale-corner" id="upscaleGoBtn" style="display:none" onclick="doUpscaleGenerate()">⬆ Upscale</button>
+      </div>
+
+      <!-- Image info bar -->
+      <div class="image-info-bar" id="imageInfoBar" style="display:none">
+        <span id="imgInfoSeed" class="img-info-item">Seed: —</span>
+        <span class="img-info-sep">·</span>
+        <span id="imgInfoRes" class="img-info-item">—</span>
+      </div>
+
+      <!-- Upscale sub-panel -->
+      <div class="image-sub-panel" id="upscalePanel" style="display:none">
+        <label class="field-label">Upscale Model</label>
+        <div class="sel-wrap">
+          <select id="upscaleModelSelect"><option>Loading…</option></select>
+          <button class="icon-btn" onclick="loadUpscaleModels()" title="Refresh">↻</button>
+        </div>
+        <div class="slider-row" style="margin-top:8px">
+          <div class="slider-label-row">
+            <label class="field-label">Rescale Factor</label>
+            <input type="number" id="upscaleFactorNum" class="num-input" min="1" max="8" step="0.5" value="2" oninput="syncNum('upscaleFactor')" />
+          </div>
+          <input type="range" id="upscaleFactorSlider" min="1" max="8" step="0.5" value="2" oninput="syncSlider('upscaleFactor')" />
+        </div>
+      </div>
+
+      <!-- Enhance sub-panel -->
+      <div class="image-sub-panel" id="enhancePanel" style="display:none">
+
+        <!-- Enhance Prompt (off by default) -->
+        <div class="enhance-prompt-section">
+          <div class="enhance-prompt-header">
+            <label class="toggle-label" style="font-size:11px">
+              <input type="checkbox" id="enhancePromptToggle" onchange="toggleEnhancePrompt(this.checked)" />
+              Use custom prompt for enhance
+            </label>
+          </div>
+          <div id="enhancePromptWrap" style="display:none;margin-top:6px">
+            <label class="field-label">Enhance Positive Prompt</label>
+            <div class="char-prompt-wrap" style="position:relative">
+              <div class="prompt-highlight-layer char-highlight-layer" id="highlightLayerEnhancePos" aria-hidden="true"></div>
+              <textarea id="enhancePrompt" class="prompt-ta qtag-ta" rows="3" placeholder="Leave blank to use main prompt. Add details for the enhanced version…" style="width:100%;margin-bottom:6px"></textarea>
+            </div>
+            <label class="field-label">Enhance Negative Prompt</label>
+            <div class="char-prompt-wrap" style="position:relative">
+              <div class="prompt-highlight-layer char-highlight-layer" id="highlightLayerEnhanceNeg" aria-hidden="true"></div>
+              <textarea id="enhanceNegativePrompt" class="prompt-ta qtag-ta" rows="2" placeholder="Leave blank to use main negative prompt…" style="width:100%"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enhance Model Card -->
+        <div class="enhance-model-card" id="enhanceModelCard">
+          <div class="enhance-model-header collapsible-header" onclick="toggleEnhanceModelCard()">
+            <span class="pcard-icon">◈</span>
+            <span class="enhance-model-title">Model</span>
+            <div class="segmented" style="margin-left:auto;margin-right:8px" onclick="event.stopPropagation()">
+              <button class="seg-btn enh-seg active" onclick="switchEnhanceModelType('checkpoint',this)">Checkpoint</button>
+              <button class="seg-btn enh-seg" onclick="switchEnhanceModelType('diffusion',this)">Diffusion</button>
+            </div>
+            <span class="collapse-arrow enhance-collapse-arrow">▾</span>
+          </div>
+          <div class="enhance-model-body" id="enhanceModelCard-body">
+            <!-- Checkpoint row -->
+            <div id="enhanceCheckpointRow">
+              <label class="field-label">Checkpoint</label>
+              <div class="sel-wrap">
+                <select id="enhanceCheckpointSelect"><option>Loading…</option></select>
+                <button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button>
+              </div>
+            </div>
+            <!-- Diffusion row -->
+            <div id="enhanceDiffusionRow" class="hidden">
+              <label class="field-label">UNET / Diffusion Model</label>
+              <div class="sel-wrap">
+                <select id="enhanceDiffusionSelect"><option>Loading…</option></select>
+                <button class="icon-btn" onclick="loadModels()" title="Refresh models">↻</button>
+              </div>
+              <label class="field-label" style="margin-top:8px">Text Encoder</label>
+              <div class="sel-wrap">
+                <select id="enhanceTeSelect"><option value="none">none</option></select>
+              </div>
+              <label class="field-label" style="margin-top:8px">Encoder Type</label>
+              <div class="sel-wrap">
+                <select id="enhanceTeType">
+                  <option value="stable_diffusion">stable_diffusion</option>
+                  <option value="flux">flux</option>
+                  <option value="sd3">sd3</option>
+                  <option value="stable_cascade">stable_cascade</option>
+                  <option value="mochi">mochi</option>
+                  <option value="ltxv">ltxv</option>
+                  <option value="cosmos">cosmos</option>
+                  <option value="lumina2">lumina2</option>
+                  <option value="wan">wan</option>
+                  <option value="hidream">hidream</option>
+                  <option value="chroma">chroma</option>
+                  <option value="ace">ace</option>
+                  <option value="qwen_image">qwen_image</option>
+                </select>
+              </div>
+            </div>
+            <!-- VAE (always shown) -->
+            <div style="display:flex;align-items:center;gap:4px;margin-top:8px;margin-bottom:5px">
+              <label class="field-label" style="margin:0">VAE</label><span class="vae-info-icon">ⓘ</span>
+            </div>
+            <div class="sel-wrap">
+              <select id="enhanceVaeSelect"><option value="Automatic (embedded)" style="display:none"></option></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upscale + Denoise row -->
+        <div class="enhance-options-row">
+          <div style="flex:1">
+            <label class="field-label">Upscale Model</label>
+            <div class="sel-wrap"><select id="enhanceUpscaleModel"><option>Loading…</option></select></div>
+          </div>
+          <div style="flex:1">
+            <label class="field-label">Upscale Factor</label>
+            <input type="number" id="enhanceUpscaleFactor" class="num-input" min="1" max="8" step="0.5" value="2" style="width:100%" />
+          </div>
+        </div>
+        <div class="slider-row" style="margin-top:8px">
+          <div class="slider-label-row">
+            <label class="field-label">Denoise Strength</label>
+            <input type="number" id="enhanceDenoiseNum" class="num-input" min="0" max="1" step="0.01" value="0.4" oninput="syncNum('enhanceDenoise')" />
+          </div>
+          <input type="range" id="enhanceDenoiseSlider" min="0" max="1" step="0.01" value="0.4" oninput="syncSlider('enhanceDenoise')" />
+        </div>
+        <details class="enhance-advanced">
+          <summary class="enhance-advanced-toggle">▸ Sampling Settings</summary>
+          <div class="enhance-advanced-body">
+            <div class="slider-label-row" style="margin-bottom:6px">
+              <label class="field-label">Seed</label>
+              <input type="number" id="enhanceSeed" class="seed-input" value="-1" style="width:120px" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row"><label class="field-label">Steps</label><input type="number" id="enhanceStepsNum" class="num-input" min="1" max="150" value="20" oninput="syncNum('enhanceSteps')" /></div>
+              <input type="range" id="enhanceStepsSlider" min="1" max="150" value="20" oninput="syncSlider('enhanceSteps')" />
+            </div>
+            <div class="slider-row">
+              <div class="slider-label-row"><label class="field-label">CFG</label><input type="number" id="enhanceCFGNum" class="num-input" min="1" max="30" step="0.5" value="7" oninput="syncNum('enhanceCFG')" /></div>
+              <input type="range" id="enhanceCFGSlider" min="1" max="30" step="0.5" value="7" oninput="syncSlider('enhanceCFG')" />
+            </div>
+            <label class="field-label">Sampler</label>
+            <div class="sel-wrap" style="margin-bottom:8px">
+              <select id="enhanceSampler">
+                <option value="euler">euler</option>
+                <option value="euler_cfg_pp">euler_cfg_pp</option>
+                <option value="euler_ancestral" selected>euler_ancestral</option>
+                <option value="euler_ancestral_cfg_pp">euler_ancestral_cfg_pp</option>
+                <option value="heun">heun</option>
+                <option value="heunpp2">heunpp2</option>
+                <option value="exp_heun_2_x0">exp_heun_2_x0</option>
+                <option value="exp_heun_2_x0_sde">exp_heun_2_x0_sde</option>
+                <option value="dpm_2">dpm_2</option>
+                <option value="dpm_2_ancestral">dpm_2_ancestral</option>
+                <option value="lms">lms</option>
+                <option value="dpm_fast">dpm_fast</option>
+                <option value="dpm_adaptive">dpm_adaptive</option>
+                <option value="dpmpp_2s_ancestral">dpmpp_2s_ancestral</option>
+                <option value="dpmpp_2s_ancestral_cfg_pp">dpmpp_2s_ancestral_cfg_pp</option>
+                <option value="dpmpp_sde">dpmpp_sde</option>
+                <option value="dpmpp_sde_gpu">dpmpp_sde_gpu</option>
+                <option value="dpmpp_2m">dpmpp_2m</option>
+                <option value="dpmpp_2m_cfg_pp">dpmpp_2m_cfg_pp</option>
+                <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+                <option value="dpmpp_2m_sde_gpu">dpmpp_2m_sde_gpu</option>
+                <option value="dpmpp_2m_sde_heun">dpmpp_2m_sde_heun</option>
+                <option value="dpmpp_2m_sde_heun_gpu">dpmpp_2m_sde_heun_gpu</option>
+                <option value="dpmpp_3m_sde">dpmpp_3m_sde</option>
+                <option value="dpmpp_3m_sde_gpu">dpmpp_3m_sde_gpu</option>
+                <option value="ddpm">ddpm</option>
+                <option value="lcm">lcm</option>
+                <option value="ipndm">ipndm</option>
+                <option value="ipndm_v">ipndm_v</option>
+                <option value="deis">deis</option>
+                <option value="res_multistep">res_multistep</option>
+                <option value="res_multistep_cfg-pp">res_multistep_cfg-pp</option>
+                <option value="res_multistep_ancestral">res_multistep_ancestral</option>
+                <option value="res_multistep_ancestral_cfg-pp">res_multistep_ancestral_cfg-pp</option>
+                <option value="gradient_estimation">gradient_estimation</option>
+                <option value="gradient_estimation_cfg_pp">gradient_estimation_cfg_pp</option>
+                <option value="er_sde">er_sde</option>
+                <option value="seeds_2">seeds_2</option>
+                <option value="seeds_3">seeds_3</option>
+                <option value="sa_solver">sa_solver</option>
+                <option value="sa_solver_pece">sa_solver_pece</option>
+                <option value="ddim">ddim</option>
+                <option value="uni_pc">uni_pc</option>
+                <option value="uni_pc_bh2">uni_pc_bh2</option>
+              </select>
+            </div>
+            <label class="field-label">Scheduler</label>
+            <div class="sel-wrap">
+              <select id="enhanceScheduler">
+                <option value="simple">simple</option>
+                <option value="sgm_uniform">sgm_uniform</option>
+                <option value="karras" selected>karras</option>
+                <option value="exponential">exponential</option>
+                <option value="ddim_uniform">ddim_uniform</option>
+                <option value="beta">beta</option>
+                <option value="normal">normal</option>
+                <option value="linear_quadratic">linear_quadratic</option>
+                <option value="kl_optimal">kl_optimal</option>
+              </select>
+            </div>
+          </div>
+        </details>
+      </div>
+
+    </div><!-- /image-pane -->
+
+  <!-- ═══ PROMPT LIBRARY MODAL ═══ -->
+  <div class="modal-backdrop" id="plBackdrop" onclick="closePromptLibrary()"></div>
+  <div class="settings-modal" id="plModal">
+    <div class="settings-header">
+      <span class="settings-title">💾 Saved Prompts</span>
+      <button class="icon-btn" onclick="closePromptLibrary()">✕</button>
+    </div>
+    <div class="pl-modal-toolbar">
+      <label class="toggle-label" style="font-size:11.5px">
+        <input type="checkbox" id="plIncludePrepend" checked onchange="state.plIncludePrepend=this.checked;localStorage.setItem('comfyStudioPLPrepend',this.checked)" />
+        Include prepend tags when saving
+      </label>
+      <button class="hist-btn" onclick="saveCurrentPrompt()" style="width:auto;padding:5px 14px;flex-shrink:0">💾 Save Current Prompt</button>
+    </div>
+    <div class="pl-list" id="plList" style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+      <p class="empty-hint" style="padding:8px 0">No saved prompts yet.</p>
+    </div>
+  </div>
+
+
+
+
+  <!-- ═══ COMPARISON GRID OVERLAY ═══
+       Full-screen overlay that mirrors app-shell layout.
+       Left = slot panel (like .left-panel), Right = image preview area.
+  -->
+  <div class="cg-shell" id="cgShell" style="display:none">
+
+    <!-- LEFT: slot panel -->
+    <aside class="cg-left-panel">
+
+      <!-- Top bar -->
+      <div class="cg-topbar">
+        <span class="cg-logo">⊞ <em>Compare</em></span>
+        <button class="icon-btn" onclick="toggleCompGridPanel()" title="Close comparison grid">✕</button>
+      </div>
+
+      <!-- Scrollable slot list -->
+      <div class="cg-panel-scroll" id="cgSlots"></div>
+
+      <!-- Footer: controls + generate -->
+      <div class="cg-panel-footer">
+        <button class="cg-add-btn" id="cgAddBtn" onclick="cgAddSlot()">＋ Add Slot</button>
+        <div class="cg-footer-opts">
+          <label class="cg-opt-label">
+            <input type="checkbox" id="cgSendAll" />
+            Send each slot image to history
+          </label>
+          <label class="cg-opt-label">Grid label font
+            <input type="number" id="cgFontSize" class="num-input" value="17" min="10" max="40" style="width:44px;margin-left:4px" />
+          </label>
+        </div>
+        <button class="generate-btn" id="cgRunBtn" onclick="cgRun()" style="width:100%">
+          <span class="gen-icon">⟡</span> <span id="cgRunText">Generate &amp; Compare</span>
+        </button>
+        <span class="cg-progress" id="cgProgress"></span>
+      </div>
+
+    </aside>
+
+    <!-- Drag resize handle -->
+    <div class="cg-drag-handle" id="cgDragHandle"></div>
+
+    <!-- RIGHT: image preview -->
+    <div class="cg-preview-pane">
+      <div class="cg-preview-topbar">
+        <span class="img-title" id="cgPreviewTitle">Preview</span>
+        <span class="cg-hint" id="cgHint">Add at least 2 slots to generate a comparison grid.</span>
+      </div>
+      <div class="cg-preview-area">
+        <div class="cg-preview-placeholder" id="cgPreviewPlaceholder">
+          <span style="font-size:32px;opacity:.18">⊞</span>
+          <span>Slot previews will appear here during generation</span>
+        </div>
+        <img class="cg-preview-img" id="cgPreviewImg" style="display:none" alt="Preview" />
+      </div>
+    </div>
+
+  </div>
+
+    <!-- ═══ RIGHT HISTORY PANEL ═══ -->
+    <aside class="right-panel" id="rightPanel">
+      <div class="right-panel-inner">
+        <button class="right-collapse-tab" id="rightCollapseTab" onclick="toggleHistoryPanel()" title="Toggle History">
+          <span id="rightCollapseIcon">◁</span>
+        </button>
+        <div class="right-panel-content" id="rightPanelContent">
+          <div class="right-panel-header">
+            <span class="right-panel-title">History</span>
+          </div>
+          <div class="history-list" id="historyList">
+            <p class="empty-hint history-empty">Generated images will appear here. Images in history will not be saved after closing the tab.</p>
+          </div>
+          <div class="right-panel-footer">
+            <button class="hist-btn" onclick="downloadHistoryZip()">⬇ Download ZIP</button>
+            <button class="hist-btn danger" onclick="clearHistory()">✕ Clear</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- /app-shell -->
+
+  <!-- LoRA item template -->
+  <template id="loraTemplate">
+    <div class="lora-item">
+      <div class="lora-top">
+        <div class="lora-search-wrap">
+          <input type="text" class="lora-search-input" placeholder="Search LoRA…" autocomplete="off" />
+          <div class="lora-search-dropdown" style="display:none"></div>
+          <input type="hidden" class="lora-sel" />
+        </div>
+        <button class="icon-btn lora-toggle-btn" onclick="toggleLora(this)" title="Disable">◉</button>
+        <button class="icon-btn remove-btn" onclick="removeLora(this)" title="Remove">✕</button>
+      </div>
+      <div class="lora-strength">
+        <span class="lora-strength-label">Strength</span>
+        <input type="range" class="lora-slider" min="-2" max="2" step="0.05" value="1" oninput="loraSliderInput(this)" />
+        <input type="number" class="lora-num num-input" min="-2" max="2" step="0.05" value="1" oninput="loraNumInput(this)" />
+      </div>
+      <div class="lora-disabled-overlay">DISABLED</div>
+    </div>
+  </template>
+
+  <!-- Character item template -->
+  <template id="charTemplate">
+    <div class="char-item">
+      <div class="char-header">
+        <div class="char-reorder-btns">
+          <button class="char-reorder-btn" onclick="moveCharacter(this,-1)" title="Move up">▲</button>
+          <button class="char-reorder-btn" onclick="moveCharacter(this,1)" title="Move down">▼</button>
+        </div>
+        <span class="char-label">Character</span>
+        <div class="char-actions">
+          <button class="icon-btn hdr-btn" onclick="toggleCharacter(this)" title="Disable">◉</button>
+          <button class="icon-btn hdr-btn remove-btn" onclick="removeCharacter(this)" title="Remove">✕</button>
+        </div>
+      </div>
+      <div class="char-keyword-row">
+        <label>Keyword</label>
+        <input type="text" class="char-keyword-input" />
+      </div>
+      <div class="char-prompt-wrap" style="position:relative">
+        <div class="prompt-highlight-layer char-highlight-layer" aria-hidden="true"></div>
+        <textarea class="prompt-ta char-ta" placeholder="Describe this character's appearance…" rows="3" ></textarea>
+      </div>
+     <!-- <div class="char-token-count">Tokens: <span class="char-token-val">0</span></div>-->
+      <div class="char-disabled-overlay">DISABLED</div>
+    </div>
+  </template>
+
+  <!-- History item template -->
+  <template id="historyItemTemplate">
+    <div class="history-item">
+      <img class="history-thumb" alt="History" />
+      <button class="history-delete icon-btn" title="Delete">✕</button>
+    </div>
+  </template>
+
+  <!-- History pending item template -->
+  <template id="historyPendingTemplate">
+    <div class="history-item history-pending" id="">
+      <div class="history-pending-inner">
+        <div class="history-pending-spinner"></div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ═══ REGIONAL PROMPTING MODAL ═══ -->
+
+
+  <!-- ═══ DRAW ON IMAGE MODAL ═══ -->
+  <div class="paint-modal-backdrop" id="drawModalBackdrop"></div>
+  <div class="paint-modal" id="drawModal">
+    <div class="paint-modal-header">
+      <span class="paint-modal-title">✏ Draw on Image</span>
+      <div class="paint-modal-tools">
+        <div class="paint-tool-group">
+          <label class="paint-tool-label">Brush Size</label>
+          <input type="range" id="drawBrushSize" min="1" max="80" value="12" oninput="updateDrawBrushSize(this.value)" />
+          <span class="paint-tool-val" id="drawBrushSizeVal">12</span>
+        </div>
+        <div class="paint-tool-group">
+          <label class="paint-tool-label">Color</label>
+          <input type="color" id="drawColor" value="#ff6b9d" class="paint-color-input" oninput="updateDrawColor(this.value)" />
+        </div>
+        <div class="paint-tool-group" style="border-left:1px solid var(--border-faint);padding-left:10px;gap:4px">
+          <button class="paint-tool-btn active" id="drawBrushBtn" onclick="setDrawTool('brush')" title="Brush">✏ Brush</button>
+          <button class="paint-tool-btn" id="drawEraserBtn" onclick="setDrawTool('eraser')" title="Eraser">◻ Eraser</button>
+          <button class="paint-tool-btn" id="drawEyedropBtn" onclick="setDrawTool('eyedrop')" title="Pick color from image">⊙ Pick</button>
+          <button class="paint-tool-btn" id="drawFillBtn" onclick="setDrawTool('fill')" title="Paint bucket fill">🪣 Fill</button>
+          <button class="paint-tool-btn" id="drawLassoBtn" onclick="setDrawTool('lasso')" title="Lasso selection — draw to select, then drag/copy/paste">⬡ Lasso</button>
+        </div>
+        <div class="paint-tool-group" id="lassoActionsGroup" style="display:none;border-left:1px solid var(--border-faint);padding-left:10px;gap:4px">
+          <button class="paint-tool-btn" onclick="lassoCopy()" title="Copy selection">⎘ Copy</button>
+          <button class="paint-tool-btn" onclick="lassoCut()" title="Cut selection">✂ Cut</button>
+          <button class="paint-tool-btn" onclick="lassoPaste()" title="Paste copied selection" id="lassoPasteBtn" style="display:none">⎙ Paste</button>
+          <button class="paint-tool-btn" onclick="lassoClear()" title="Clear selection">✕ Deselect</button>
+        </div>
+        <button class="paint-tool-btn" onclick="clearDraw()" title="Clear all drawing">↺ Clear</button>
+      </div>
+    </div>
+    <div class="paint-canvas-wrap" id="drawCanvasWrap">
+      <img id="drawBaseImg" class="paint-base-img" alt="" />
+      <!-- full-edge resize strips -->
+      <div class="canvas-edge-handle" id="drh-n"  data-dir="n"></div>
+      <div class="canvas-edge-handle" id="drh-s"  data-dir="s"></div>
+      <div class="canvas-edge-handle" id="drh-e"  data-dir="e"></div>
+      <div class="canvas-edge-handle" id="drh-w"  data-dir="w"></div>
+      <canvas id="drawCanvas" class="paint-canvas"></canvas>
+      <!-- lasso overlay: drawn on top for selection marquee -->
+      <canvas id="drawLassoCanvas" class="paint-canvas draw-lasso-canvas"></canvas>
+      <!-- floating paste layer -->
+      <canvas id="drawFloatCanvas" class="paint-canvas draw-float-canvas" style="display:none"></canvas>
+    </div>
+    <div class="paint-modal-footer">
+      <button class="paint-action-btn accent" onclick="saveDrawAndClose()">✓ Save &amp; Close</button>
+      <button class="paint-action-btn" onclick="closeDrawModal()">✕ Exit Without Saving</button>
+    </div>
+  </div>
+
+  <!-- ═══ INPAINT MASK MODAL ═══ -->
+  <div class="paint-modal-backdrop" id="inpaintModalBackdrop"></div>
+  <div class="paint-modal" id="inpaintModal">
+    <div class="paint-modal-header">
+      <span class="paint-modal-title">⬛ Inpaint Mask</span>
+      <div class="paint-modal-tools">
+        <div class="paint-tool-group">
+          <label class="paint-tool-label">Brush Size</label>
+          <input type="range" id="inpaintBrushSize" min="1" max="120" value="20" oninput="updateInpaintBrushSize(this.value)" />
+          <span class="paint-tool-val" id="inpaintBrushSizeVal">20</span>
+        </div>
+        <button class="paint-tool-btn" id="inpaintEraserBtn" onclick="toggleInpaintEraser()" title="Erase mask">◻ Eraser</button>
+        <button class="paint-tool-btn" id="inpaintGridSnapBtn" onclick="toggleGridSnap()" title="Snap brush to 8×8 VAE latent grid — cleaner mask boundaries for inpainting">⊞ Grid Snap</button>
+        <button class="paint-tool-btn" onclick="clearInpaintMask()" title="Clear mask">↺ Clear Mask</button>
+      </div>
+    </div>
+    <div class="paint-canvas-wrap" id="inpaintCanvasWrap">
+      <img id="inpaintBaseImg" class="paint-base-img" alt="" />
+      <canvas id="inpaintMaskCanvas" class="paint-canvas inpaint-mask-canvas"></canvas>
+    </div>
+    <div class="paint-modal-footer">
+      <button class="paint-action-btn accent" onclick="saveInpaintMaskAndClose()">✓ Save Mask &amp; Close</button>
+      <button class="paint-action-btn" onclick="closeInpaintModal()">✕ Exit Without Saving</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=20250524f"></script>
+  <!-- ═══ TOAST NOTIFICATIONS ═══ -->
+  <div class="toast-container" id="toastContainer"></div>
+
+
+</body>
