@@ -15,6 +15,7 @@ This markdown document provides an overview of **ComfyUI Studio**, its features,
 * **Wildcards & Characters:** Define reusable character profiles and wildcard lists (`{{wc:name}}`) for faster, more creative prompting.
 * **Compare:** Generate a grid/xyz plot based on defined parameters like samplers, seed, scheduler, etc.
 * **Image Captioning:** Generate tags or natural language captions describing an image of your choosing.
+* **Remote Sharing:** Create a password protected cloudflare link for a friend to remote into your studio to use. 
 
 
 
@@ -42,6 +43,8 @@ This markdown document provides an overview of **ComfyUI Studio**, its features,
 ### Prerequisites
 1. **ComfyUI:** Ensure [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is installed and operational.
 2. **Node.js:** Node.js is required to run the Studio's local server (`server.js`).
+3. **Cloudflare Tunnel (optional):** Required only if you want to share your Studio remotely. Install `cloudflared` from [developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) and ensure it is available on your system PATH. No Cloudflare account is needed.
+Make sure the file is renamed as cloudflared.exe if it isn't already that. 
 
 ### Installation & Launch
 1. Place the ComfyUI Studio folder anywhere you like. Do not remove or rename any files inside it, including the autocomplete folder.
