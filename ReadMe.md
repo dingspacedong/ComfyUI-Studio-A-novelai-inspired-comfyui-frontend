@@ -3,7 +3,7 @@ This markdown document provides an overview of **ComfyUI Studio**, its features,
 ---
 
 # ComfyUI Studio
-
+![ui screenshot](UIScreenshot.png)
 **ComfyUI Studio** is a feature-rich, customizable browser-based frontend for [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It provides a more user-friendly, application-like experience for managing prompts, models, LoRAs, and generations.
 
 ## Features
@@ -89,5 +89,4 @@ Upon launching, ComfyUI Studio connects to your local ComfyUI instance via WebSo
 
 * **Themes:** Open **Settings** -> **Themes** to switch between presets or enable "Customize Theme" to adjust individual colors and fonts in real-time. You can export/import these configurations as JSON files.
 
-### Screenshot
-![ui screenshot](UIScreenshot.png)
+
