@@ -13,6 +13,9 @@ This markdown document provides an overview of **ComfyUI Studio**, its features,
 * **Tag Autocomplete:** Supports custom CSV files for easy tag suggestion while typing.
 * **Quality Tags:** Optional easy insertion of quality-boosting tags for positive/negative prompts.
 * **Wildcards & Characters:** Define reusable character profiles and wildcard lists (`{{wc:name}}`) for faster, more creative prompting.
+* **Compare:** Generate a grid/xyz plot based on defined parameters like samplers, seed, scheduler, etc.
+* **Image Captioning:** Generate tags or natural language captions describing an image of your choosing.
+
 
 
 * **Flexible Generation Options:**
@@ -37,29 +40,23 @@ This markdown document provides an overview of **ComfyUI Studio**, its features,
 ## Getting Started
 
 ### Prerequisites
-
 1. **ComfyUI:** Ensure [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is installed and operational.
-2. **Python:** Python is required to run the accompanying local file servers.
+2. **Node.js:** Node.js is required to run the Studio's local server (`server.js`).
 
 ### Installation & Launch
-
-1. Place the `app.js`, `index.html`, `style.css`, `share.py`, and `launch.bat` files in the same directory as your ComfyUI startup script (e.g., `run_nvidia_gpu.bat`).
-2. Open `launch.bat` in a text editor to update the path to your ComfyUI startup script (e.g., `run_nvidia_gpu.bat`).
-3. Run `launch.bat`. This will:
-* Start your ComfyUI instance (in a separate window).
-* Start the ComfyStudio HTTP file server (port 3000).
-* Start the `share.py` save server (port 3001).
-* Automatically open the Studio interface in your browser at `http://localhost:3000/`.
-
-
+1. Place the ComfyUI Studio folder anywhere you like. Do not remove or rename any files inside it, including the autocomplete folder.
+2. Run `launch.bat`. The first time you run it, you'll be prompted to enter the full path to your ComfyUI startup script (e.g., `run_nvidia_gpu.bat`) — the file itself, not just the folder. This path is saved to `comfyui_path.txt`. Delete that file any time to change it.
+3. `launch.bat` will:
+   - Start your ComfyUI instance in a separate window.
+   - Start the Studio server (`server.js`) on port 3000.
+   - Automatically open the Studio interface in your browser at `http://localhost:3000/`.
 
 ---
 
 ## How to Use
 
 ### 1. Connecting
-
-Upon launching, ComfyUI Studio connects to your local ComfyUI instance via WebSocket. Ensure the **URL** in the top bar matches your ComfyUI port (default `http://127.0.0.1:8188`). A green dot in the status indicator shows a successful connection.
+Upon launching, ComfyUI Studio connects to your local ComfyUI instance via WebSocket. Ensure the **URL** in the top bar matches your ComfyUI port (default `http://127.0.0.1:8188`). A green dot in the status indicator confirms a successful connection.
 
 ### 2. Generating Images
 
