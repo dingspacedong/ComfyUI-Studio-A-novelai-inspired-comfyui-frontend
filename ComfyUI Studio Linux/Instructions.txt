@@ -1,0 +1,38 @@
+You can place ComfyUI Studio anywhere you like. Do not remove any files from the main folder, including the autocomplete folder.
+Before launching make sure you paste these commands in your comfyui run .bat file.
+ --preview-method "auto" --enable-cors-header "*"
+
+To launch, open launch.bat. The first time you run it, you'll be prompted to enter the path to your ComfyUI .bat file. 
+This is the one you normally use to start ComfyUI. Enter the full path to the file itself, not just the folder it's in. 
+It will then open ComfyUI Studio and ComfyUI in separate tabs.
+As long as all files are intact and the path is correct, everything should work from there. Check the Help tab in Settings if you run into any issues.
+
+Notification sound: To play a sound when a generation finishes, place an MP3 named notif.mp3 in the root folder of this project (thesame folder as app.js and index.html, etc.) then enable it in Settings.
+
+Output folder: An output folder is included but disabled by default. You can set any folder as your output path in Settings.
+
+A common issue that I've found is that you are using the wrong VAE, so be sure that you have the right VAE selected for your model.
+
+Experimental features: Inpainting, IP-Adapter (NOT TESTED), ControlNet (LIMITED TESTING), Comparison Grid, and the Caption tool are all disabled by default. Enable whichever you need under Settings → Experimental. 
+The captions require custom nodes — see the Help tab for setup instructions for each one.
+
+
+You can place ComfyUI Studio anywhere you like. Do not remove any files from the main folder, including the autocomplete folder.
+Before launching, make sure you add these arguments to your ComfyUI launch command. On Linux this is typically your run_comfyui.sh script or whichever script/command you use to start ComfyUI — add them to the line that calls python main.py:
+--preview-method auto --enable-cors-header "*"
+For example: python main.py --preview-method auto --enable-cors-header "*"
+
+To launch, first make the script executable (one-time step):
+bashchmod +x launch.sh
+Then run ./launch.sh. The first time you run it, you'll be prompted to enter the full path to your ComfyUI launch script — the file itself, not just the folder it's in. It will then start ComfyUI and open ComfyUI Studio in your browser at http://localhost:3000.
+
+As long as all files are intact and the path is correct, everything should work from there. Check the Help tab in Settings if you run into any issues.
+
+Notification sound: To play a sound when a generation finishes, place an MP3 named notif.mp3 in the root folder of this project (the same folder as app.js and index.html, etc.) then enable it in Settings.
+
+Output folder: An output folder is included but disabled by default. You can set any folder as your output path in Settings. Use an absolute path such as /home/yourname/Pictures/ComfyStudio.
+
+A common issue is using the wrong VAE, so be sure you have the right VAE selected for your model.
+
+Experimental features: Inpainting, IP-Adapter (NOT TESTED), ControlNet (LIMITED TESTING), Comparison Grid, and the Caption tool are all disabled by default. Enable whichever you need under Settings → Experimental.
+The captions require custom nodes — see the Help tab for setup instructions for each one.
