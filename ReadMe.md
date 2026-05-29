@@ -44,13 +44,28 @@ This markdown document provides an overview of **ComfyUI Studio**, its features,
 1. **ComfyUI:** Ensure [ComfyUI](https://github.com/comfyanonymous/ComfyUI) is installed and operational.
 2. **Node.js:** Node.js is required to run the Studio's local server (`server.js`).
 3. **Cloudflare Tunnel (optional):** Required only if you want to share your Studio remotely. Install `cloudflared` from [developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) and ensure it is available on your system PATH. No Cloudflare account is needed.
-Make sure the file is renamed as cloudflared.exe if it isn't already that. 
+   - **Windows:** Make sure the file is renamed to `cloudflared.exe` if it isn't already.
+   - **Linux:** Download the appropriate binary (e.g., `cloudflared-linux-amd64`), rename it to `cloudflared`, make it executable (`chmod +x cloudflared`), and move it somewhere on your PATH such as `/usr/local/bin/`.
 
 ### Installation & Launch
+
+#### Windows
 1. Place the ComfyUI Studio folder anywhere you like. Do not remove or rename any files inside it, including the autocomplete folder.
 2. Run `launch.bat`. The first time you run it, you'll be prompted to enter the full path to your ComfyUI startup script (e.g., `run_nvidia_gpu.bat`) — the file itself, not just the folder. This path is saved to `comfyui_path.txt`. Delete that file any time to change it.
 3. `launch.bat` will:
    - Start your ComfyUI instance in a separate window.
+   - Start the Studio server (`server.js`) on port 3000.
+   - Automatically open the Studio interface in your browser at `http://localhost:3000/`.
+
+#### Linux
+1. Place the ComfyUI Studio folder anywhere you like. Do not remove or rename any files inside it, including the autocomplete folder.
+2. Make the launch script executable (one-time step):
+   ```bash
+   chmod +x launch.sh
+   ```
+3. Run `./launch.sh`. The first time you run it, you'll be prompted to enter the full path to your ComfyUI startup script (e.g., `/home/user/ComfyUI/run_comfyui.sh`) — the file itself, not just the folder. This path is saved to `comfyui_path.txt`. Delete that file any time to change it.
+4. `launch.sh` will:
+   - Start your ComfyUI instance in a separate terminal window (tries `gnome-terminal`, `xterm`, and `konsole` in order; falls back to a background process if none are found).
    - Start the Studio server (`server.js`) on port 3000.
    - Automatically open the Studio interface in your browser at `http://localhost:3000/`.
 
@@ -84,9 +99,8 @@ Upon launching, ComfyUI Studio connects to your local ComfyUI instance via WebSo
 
 * By default, clicking the **Save** button will prompt a standard browser download.
 * For automatic organization, configure the **Output Path** in **Settings** -> **Save**. Ensure `share.py` is running so the app can write files directly to your preferred folder with automatic numbering (e.g., `ComfyStudio_00001.png`).
+* **Linux note:** Use a standard absolute path such as `/home/user/Pictures/ComfyStudio`. Make sure the directory exists or the server has permission to create it.
 
 ### 5. Customizing
 
 * **Themes:** Open **Settings** -> **Themes** to switch between presets or enable "Customize Theme" to adjust individual colors and fonts in real-time. You can export/import these configurations as JSON files.
-
-
